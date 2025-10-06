@@ -294,16 +294,11 @@ export default function HomePage() {
             </div>
             
             <div className="bg-gray-50 rounded-lg p-6 mb-6">
-              <div className="mb-4">
-                <div className="flex justify-between items-end mb-2">
-                  <div>
-                    <p className="text-sm text-gray-600">Auction Price</p>
-                    <p className="text-2xl font-bold">$8,000</p>
-                  </div>
-                </div>
-              </div>
-              
               <div className="space-y-2 text-sm mb-4">
+                <div className="flex justify-between items-baseline mb-2">
+                  <span className="text-gray-600">Auction Price</span>
+                  <span className="text-2xl font-bold">$8,000</span>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Auction Fees</span>
                   <span>$330</span>
