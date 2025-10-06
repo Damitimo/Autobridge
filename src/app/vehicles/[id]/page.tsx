@@ -74,12 +74,191 @@ export default function VehicleDetailPage() {
   const fetchVehicle = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/vehicles/${params.id}`);
-      const data = await response.json();
       
-      if (data.success) {
-        setVehicle(data.data);
-        setBidAmount(data.data.currentBid || '');
+      // Demo cars data (for now, before API integration)
+      const demoCars: { [key: string]: Vehicle } = {
+        '1': {
+          id: '1',
+          year: 2020,
+          make: 'Toyota',
+          model: 'Camry',
+          trim: 'SE',
+          vin: '4T1B11HK5LU123456',
+          currentBid: '8500',
+          condition: 'running',
+          titleStatus: 'clean',
+          odometer: 45000,
+          primaryDamage: 'Front End',
+          secondaryDamage: 'Minor Scratches',
+          auctionDate: new Date('2024-12-15'),
+          auctionLocation: 'Los Angeles - CA',
+          auctionLocationState: 'CA',
+          thumbnailUrl: 'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=800&h=600&fit=crop',
+          images: [
+            'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=800&h=600&fit=crop',
+            'https://images.unsplash.com/photo-1619767886558-efdc259cde1a?w=800&h=600&fit=crop',
+            'https://images.unsplash.com/photo-1617469767053-d3b523a0b982?w=800&h=600&fit=crop',
+          ],
+          bodyStyle: 'Sedan',
+          color: 'Silver',
+          engineType: '2.5L I4',
+          transmission: 'Automatic',
+          fuelType: 'Gasoline',
+          hasKeys: true,
+        },
+        '2': {
+          id: '2',
+          year: 2019,
+          make: 'Honda',
+          model: 'Accord',
+          trim: 'Sport',
+          vin: '1HGCV1F39KA123789',
+          currentBid: '12300',
+          condition: 'running',
+          titleStatus: 'clean',
+          odometer: 32000,
+          primaryDamage: 'Rear Damage',
+          secondaryDamage: null,
+          auctionDate: new Date('2024-12-18'),
+          auctionLocation: 'Houston - TX',
+          auctionLocationState: 'TX',
+          thumbnailUrl: 'https://images.unsplash.com/photo-1590362891991-f776e747a588?w=800&h=600&fit=crop',
+          images: [
+            'https://images.unsplash.com/photo-1590362891991-f776e747a588?w=800&h=600&fit=crop',
+            'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=800&h=600&fit=crop',
+          ],
+          bodyStyle: 'Sedan',
+          color: 'Black',
+          engineType: '1.5L Turbo I4',
+          transmission: 'Automatic',
+          fuelType: 'Gasoline',
+          hasKeys: true,
+        },
+        '3': {
+          id: '3',
+          year: 2021,
+          make: 'BMW',
+          model: '3 Series',
+          trim: '330i',
+          vin: 'WBA5R1C05MWZ12345',
+          currentBid: '18750',
+          condition: 'running',
+          titleStatus: 'salvage',
+          odometer: 28000,
+          primaryDamage: 'Side Damage',
+          secondaryDamage: 'Airbags Deployed',
+          auctionDate: new Date('2024-12-12'),
+          auctionLocation: 'New York - NY',
+          auctionLocationState: 'NY',
+          thumbnailUrl: 'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=800&h=600&fit=crop',
+          images: [
+            'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=800&h=600&fit=crop',
+          ],
+          bodyStyle: 'Sedan',
+          color: 'Blue',
+          engineType: '2.0L Turbo I4',
+          transmission: 'Automatic',
+          fuelType: 'Gasoline',
+          hasKeys: false,
+        },
+        '4': {
+          id: '4',
+          year: 2020,
+          make: 'Ford',
+          model: 'F-150',
+          trim: 'XLT',
+          vin: '1FTEW1EP5LFB12345',
+          currentBid: '22400',
+          condition: 'running',
+          titleStatus: 'clean',
+          odometer: 55000,
+          primaryDamage: 'Hail Damage',
+          secondaryDamage: null,
+          auctionDate: new Date('2024-12-20'),
+          auctionLocation: 'Dallas - TX',
+          auctionLocationState: 'TX',
+          thumbnailUrl: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=800&h=600&fit=crop',
+          images: [
+            'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=800&h=600&fit=crop',
+          ],
+          bodyStyle: 'Pickup',
+          color: 'Red',
+          engineType: '3.5L V6',
+          transmission: 'Automatic',
+          fuelType: 'Gasoline',
+          hasKeys: true,
+        },
+        '5': {
+          id: '5',
+          year: 2019,
+          make: 'Mercedes-Benz',
+          model: 'C-Class',
+          trim: 'C300',
+          vin: 'WDDWF4HB8KR123456',
+          currentBid: '24900',
+          condition: 'running',
+          titleStatus: 'clean',
+          odometer: 35000,
+          primaryDamage: 'Front End',
+          secondaryDamage: 'Undercarriage',
+          auctionDate: new Date('2024-12-16'),
+          auctionLocation: 'Miami - FL',
+          auctionLocationState: 'FL',
+          thumbnailUrl: 'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=800&h=600&fit=crop',
+          images: [
+            'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=800&h=600&fit=crop',
+          ],
+          bodyStyle: 'Sedan',
+          color: 'White',
+          engineType: '2.0L Turbo I4',
+          transmission: 'Automatic',
+          fuelType: 'Gasoline',
+          hasKeys: true,
+        },
+        '6': {
+          id: '6',
+          year: 2020,
+          make: 'Lexus',
+          model: 'ES 350',
+          trim: 'Luxury',
+          vin: '58ABK1GG0LU123456',
+          currentBid: '16200',
+          condition: 'running',
+          titleStatus: 'clean',
+          odometer: 40000,
+          primaryDamage: 'Rear End',
+          secondaryDamage: null,
+          auctionDate: new Date('2024-12-22'),
+          auctionLocation: 'Atlanta - GA',
+          auctionLocationState: 'GA',
+          thumbnailUrl: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&h=600&fit=crop',
+          images: [
+            'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&h=600&fit=crop',
+          ],
+          bodyStyle: 'Sedan',
+          color: 'Gray',
+          engineType: '3.5L V6',
+          transmission: 'Automatic',
+          fuelType: 'Gasoline',
+          hasKeys: true,
+        },
+      };
+
+      // Try to fetch from API first, fallback to demo data
+      const demoVehicle = demoCars[params.id as string];
+      
+      if (demoVehicle) {
+        setVehicle(demoVehicle);
+        setBidAmount(demoVehicle.currentBid || '');
+      } else {
+        // Try API call
+        const response = await fetch(`/api/vehicles/${params.id}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          setVehicle(data.data);
+          setBidAmount(data.data.currentBid || '');
+        }
       }
     } catch (error) {
       console.error('Error fetching vehicle:', error);
@@ -149,37 +328,54 @@ export default function VehicleDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4">
+        {/* Vehicle Title Header */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold mb-2">
+            {vehicle.year} {vehicle.make} {vehicle.model} {vehicle.trim}
+          </h1>
+          <div className="flex gap-4 text-sm text-gray-600">
+            <span>VIN: {vehicle.vin}</span>
+            <span>•</span>
+            <span>{vehicle.auctionLocation}</span>
+            <span>•</span>
+            <span className="capitalize">{vehicle.condition?.replace('_', ' ')}</span>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Images and Details */}
           <div className="lg:col-span-2 space-y-6">
             {/* Images */}
             <Card>
               <CardContent className="p-0">
-                <div className="relative h-96 bg-gray-200">
+                <div className="relative h-[500px] bg-gray-200">
                   <img
                     src={images[selectedImage]}
                     alt={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-cover"
                     onError={(e) => {
-                      e.currentTarget.src = '/placeholder-car.jpg';
+                      e.currentTarget.src = 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=800&h=600&fit=crop';
                     }}
                   />
+                  <div className="absolute top-4 left-4 bg-white px-3 py-1 rounded-md shadow-md">
+                    <span className="text-sm font-semibold">Photo {selectedImage + 1} of {images.length}</span>
+                  </div>
                 </div>
                 
                 {images.length > 1 && (
-                  <div className="grid grid-cols-6 gap-2 p-4">
+                  <div className="grid grid-cols-6 gap-2 p-4 bg-gray-100">
                     {images.map((img, index) => (
                       <button
                         key={index}
                         onClick={() => setSelectedImage(index)}
-                        className={`relative h-20 border-2 rounded ${
-                          selectedImage === index ? 'border-blue-600' : 'border-gray-300'
+                        className={`relative h-20 border-2 rounded overflow-hidden transition-all ${
+                          selectedImage === index ? 'border-blue-600 ring-2 ring-blue-300' : 'border-gray-300 hover:border-blue-400'
                         }`}
                       >
                         <img
                           src={img}
                           alt={`View ${index + 1}`}
-                          className="w-full h-full object-cover rounded"
+                          className="w-full h-full object-cover"
                         />
                       </button>
                     ))}
@@ -269,57 +465,21 @@ export default function VehicleDetailPage() {
             </Card>
           </div>
 
-          {/* Right Column - Pricing and Cost Calculator */}
+          {/* Right Column - Cost Calculator (Sticky) */}
           <div className="space-y-6">
-            {/* Current Bid */}
-            <Card className="border-2 border-blue-500">
-              <CardHeader>
-                <CardTitle className="text-2xl">
-                  {vehicle.year} {vehicle.make} {vehicle.model}
-                </CardTitle>
-                {vehicle.trim && (
-                  <CardDescription className="text-lg">{vehicle.trim}</CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                <div className="mb-6">
+            {/* Cost Calculator */}
+            <Card className="sticky top-24 border-2 border-blue-500">
+              <CardHeader className="bg-blue-50">
+                <div className="mb-4">
                   <p className="text-sm text-gray-600">Current Bid</p>
-                  <p className="text-4xl font-bold text-blue-600">
+                  <p className="text-3xl font-bold text-blue-600">
                     {formatCurrency(parseFloat(vehicle.currentBid || '0'), 'USD')}
                   </p>
                 </div>
-
-                <div className="space-y-4">
-                  <FormInput
-                    type="number"
-                    label="Your Maximum Bid ($)"
-                    placeholder="Enter maximum bid amount"
-                    value={bidAmount}
-                    onChange={(e) => setBidAmount(e.target.value)}
-                  />
-                  
-                  <Button
-                    size="lg"
-                    className="w-full"
-                    onClick={handlePlaceBid}
-                  >
-                    Place Bid
-                  </Button>
-                  
-                  <p className="text-xs text-gray-600 text-center">
-                    We'll bid on your behalf up to your maximum amount
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Cost Calculator */}
-            <Card>
-              <CardHeader>
                 <CardTitle>Total Cost Calculator</CardTitle>
                 <CardDescription>Calculate landed cost in Nigeria</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 <div className="space-y-4 mb-6">
                   <div>
                     <label className="block text-sm font-medium mb-2">Destination Port</label>
@@ -356,8 +516,8 @@ export default function VehicleDetailPage() {
                   </div>
                 ) : costEstimate ? (
                   <div>
-                    <div className="bg-blue-50 p-4 rounded-lg mb-4">
-                      <p className="text-sm text-gray-600 mb-1">Total Landed Cost</p>
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-lg mb-4 border-2 border-blue-200">
+                      <p className="text-sm text-gray-600 mb-1">Total Landed Cost in Nigeria</p>
                       <p className="text-3xl font-bold text-blue-600">
                         {formatCurrency(costEstimate.totalNGN, 'NGN')}
                       </p>
@@ -377,7 +537,7 @@ export default function VehicleDetailPage() {
                       ))}
                     </div>
 
-                    <div className="border-t pt-4 space-y-3">
+                    <div className="border-t pt-4 space-y-3 mb-6">
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600">Estimated Resale Value</span>
                         <span className="font-semibold text-green-600">
@@ -398,6 +558,28 @@ export default function VehicleDetailPage() {
                           {costEstimate.estimatedDaysToDelivery} days
                         </span>
                       </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <FormInput
+                        type="number"
+                        label="Your Maximum Bid ($)"
+                        placeholder="Enter maximum bid amount"
+                        value={bidAmount}
+                        onChange={(e) => setBidAmount(e.target.value)}
+                      />
+                      
+                      <Button
+                        size="lg"
+                        className="w-full"
+                        onClick={handlePlaceBid}
+                      >
+                        Place Bid on This Vehicle
+                      </Button>
+                      
+                      <p className="text-xs text-gray-600 text-center">
+                        We'll bid on your behalf up to your maximum amount
+                      </p>
                     </div>
                   </div>
                 ) : null}
