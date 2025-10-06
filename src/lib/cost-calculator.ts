@@ -32,6 +32,7 @@ export interface CostBreakdown {
   nigerianPortCharges: number;
   clearingAgentFee: number;
   localTransport: number;
+  estimatedRepairCosts: number;
   
   // Platform
   platformFee: number;
@@ -133,6 +134,19 @@ function calculateCustomsDuty(vehiclePrice: number, vehicleYear: number): number
   }
 }
 
+// Estimate repair costs in Nigeria based on damage
+function estimateRepairCosts(vehiclePrice: number, condition: 'running' | 'non_running'): number {
+  // Base estimate on vehicle value and condition
+  // This would be more sophisticated in production with damage assessment
+  if (condition === 'non_running') {
+    // Non-running vehicles typically need 15-25% of value for repairs
+    return vehiclePrice * 0.20;
+  } else {
+    // Running vehicles might need minor repairs (5-10% of value)
+    return vehiclePrice * 0.08;
+  }
+}
+
 // Get current exchange rate (in production, fetch from API)
 async function getExchangeRate(): Promise<number> {
   // In production, fetch from CBN API or reliable FX provider
@@ -191,6 +205,9 @@ export async function calculateCost(input: CostCalculatorInput): Promise<CostEst
   // Local transport from port to destination
   const localTransport = input.destinationCity === 'Lagos' ? 50 : 150;
   
+  // Estimated repair costs in Nigeria
+  const estimatedRepairCosts = estimateRepairCosts(vehiclePrice, input.vehicleCondition);
+  
   // Platform fee (5% of vehicle price, min $50, max $200)
   const platformFee = Math.min(Math.max(vehiclePrice * 0.05, 50), 200);
   
@@ -206,6 +223,7 @@ export async function calculateCost(input: CostCalculatorInput): Promise<CostEst
     nigerianPortCharges +
     clearingAgentFee +
     localTransport +
+    estimatedRepairCosts +
     platformFee;
   
   const totalNGN = totalUSD * exchangeRate;
@@ -229,16 +247,15 @@ export async function calculateCost(input: CostCalculatorInput): Promise<CostEst
     2; // Local delivery
   
   const breakdown = [
-    { category: 'Vehicle Purchase Price', amount: vehiclePrice, currency: 'USD' as const },
-    { category: 'Auction Buyer Fee', amount: auctionBuyerFee, currency: 'USD' as const },
-    { category: 'U.S. Towing', amount: usTowing, currency: 'USD' as const },
-    { category: 'Shipping Cost', amount: shippingCost, currency: 'USD' as const },
+    { category: 'Auction Price', amount: vehiclePrice, currency: 'USD' as const },
+    { category: 'Auction Fees', amount: auctionBuyerFee, currency: 'USD' as const },
+    { category: 'Towing (Yard to Port)', amount: usTowing, currency: 'USD' as const },
+    { category: `Shipping (${input.shippingMethod.toUpperCase()})`, amount: shippingCost, currency: 'USD' as const },
     { category: 'Insurance', amount: insurance, currency: 'USD' as const },
-    { category: 'Nigerian Customs Duty', amount: nigerianCustomsDuty, currency: 'USD' as const },
-    { category: 'Port Charges', amount: nigerianPortCharges, currency: 'USD' as const },
-    { category: 'Clearing Agent Fee', amount: clearingAgentFee, currency: 'USD' as const },
-    { category: 'Local Transport', amount: localTransport, currency: 'USD' as const },
-    { category: 'Platform Fee', amount: platformFee, currency: 'USD' as const },
+    { category: 'Customs Clearance Fees', amount: nigerianCustomsDuty + nigerianPortCharges + clearingAgentFee, currency: 'USD' as const },
+    { category: 'Local Transport in Nigeria', amount: localTransport, currency: 'USD' as const },
+    { category: 'Estimated Repair Costs (Nigeria)', amount: estimatedRepairCosts, currency: 'USD' as const },
+    { category: 'Platform Service Fee', amount: platformFee, currency: 'USD' as const },
   ];
   
   return {
@@ -252,6 +269,7 @@ export async function calculateCost(input: CostCalculatorInput): Promise<CostEst
     nigerianPortCharges,
     clearingAgentFee,
     localTransport,
+    estimatedRepairCosts,
     platformFee,
     totalUSD,
     totalNGN,

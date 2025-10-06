@@ -61,40 +61,46 @@ export async function POST(
       hasKeys: vehicle.hasKeys || false,
     });
     
-    // Save estimate to database
-    const [savedEstimate] = await db
-      .insert(costEstimates)
-      .values({
-        ...(userId ? { userId } : {}),
-        vehicleId: vehicle.id,
-        vehiclePrice: vehicle.currentBid || '0',
-        auctionLocation: vehicle.auctionLocation,
-        destinationPort: validated.destinationPort,
-        shippingMethod: validated.shippingMethod,
-        vehicleCondition: vehicleCondition,
-        auctionBuyerFee: estimate.auctionBuyerFee.toString(),
-        usTowing: estimate.usTowing.toString(),
-        usStorage: estimate.usStorage.toString(),
-        shippingCost: estimate.shippingCost.toString(),
-        insurance: estimate.insurance.toString(),
-        nigerianCustomsDuty: estimate.nigerianCustomsDuty.toString(),
-        nigerianPort: estimate.nigerianPortCharges.toString(),
-        clearingAgent: estimate.clearingAgentFee.toString(),
-        localTransport: estimate.localTransport.toString(),
-        platformFee: estimate.platformFee.toString(),
-        totalCostUSD: estimate.totalUSD.toString(),
-        totalCostNGN: estimate.totalNGN.toString(),
-        exchangeRate: estimate.exchangeRate.toString(),
-        estimatedNigerianResaleValue: estimate.estimatedNigerianResaleValue.toString(),
-        estimatedProfitMargin: estimate.estimatedProfitMargin.toString(),
-        estimatedDaysToDelivery: estimate.estimatedDaysToDelivery,
-      })
-      .returning();
+    // Save estimate to database (try-catch to not fail if DB save fails)
+    let savedEstimate;
+    try {
+      [savedEstimate] = await db
+        .insert(costEstimates)
+        .values({
+          ...(userId ? { userId } : {}),
+          vehicleId: vehicle.id,
+          vehiclePrice: vehicle.currentBid || '0',
+          auctionLocation: vehicle.auctionLocation,
+          destinationPort: validated.destinationPort,
+          shippingMethod: validated.shippingMethod,
+          vehicleCondition: vehicleCondition,
+          auctionBuyerFee: estimate.auctionBuyerFee.toString(),
+          usTowing: estimate.usTowing.toString(),
+          usStorage: estimate.usStorage.toString(),
+          shippingCost: estimate.shippingCost.toString(),
+          insurance: estimate.insurance.toString(),
+          nigerianCustomsDuty: estimate.nigerianCustomsDuty.toString(),
+          nigerianPort: estimate.nigerianPortCharges.toString(),
+          clearingAgent: estimate.clearingAgentFee.toString(),
+          localTransport: estimate.localTransport.toString(),
+          platformFee: estimate.platformFee.toString(),
+          totalCostUSD: estimate.totalUSD.toString(),
+          totalCostNGN: estimate.totalNGN.toString(),
+          exchangeRate: estimate.exchangeRate.toString(),
+          estimatedNigerianResaleValue: estimate.estimatedNigerianResaleValue.toString(),
+          estimatedProfitMargin: estimate.estimatedProfitMargin.toString(),
+          estimatedDaysToDelivery: estimate.estimatedDaysToDelivery,
+        })
+        .returning();
+    } catch (dbError) {
+      console.warn('Failed to save estimate to database:', dbError);
+      // Continue anyway, just don't save to DB
+    }
     
     return NextResponse.json({
       success: true,
       data: estimate,
-      estimateId: savedEstimate.id,
+      estimateId: savedEstimate?.id,
     });
     
   } catch (error) {

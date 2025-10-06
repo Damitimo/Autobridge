@@ -537,9 +537,10 @@ export default function VehicleDetailPage() {
                       ))}
                     </div>
 
-                    <div className="border-t pt-4 space-y-3 mb-6">
+                    <div className="border-t pt-4 space-y-3 mb-6 bg-green-50 p-4 rounded-lg">
+                      <p className="text-xs font-semibold text-gray-700 uppercase mb-2">Market Intelligence</p>
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Estimated Resale Value</span>
+                        <span className="text-sm text-gray-600">Local Resale Value</span>
                         <span className="font-semibold text-green-600">
                           {formatCurrency(costEstimate.estimatedNigerianResaleValue, 'NGN')}
                         </span>
@@ -553,9 +554,9 @@ export default function VehicleDetailPage() {
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Delivery Timeline</span>
+                        <span className="text-sm text-gray-600">Lead Time (US to Nigeria)</span>
                         <span className="font-semibold">
-                          {costEstimate.estimatedDaysToDelivery} days
+                          {costEstimate.estimatedDaysToDelivery} days ({Math.ceil(costEstimate.estimatedDaysToDelivery / 7)} weeks)
                         </span>
                       </div>
                     </div>
