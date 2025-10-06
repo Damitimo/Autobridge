@@ -1,36 +1,45 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { 
+  Car, 
+  DollarSign, 
+  MapPin, 
+  Lock, 
+  Ship, 
+  TrendingUp,
+  CheckCircle2 
+} from 'lucide-react';
 
 export default function HomePage() {
   const features = [
     {
-      icon: '🚗',
+      icon: Car,
       title: 'Access 100,000+ Vehicles',
       description: 'Browse auction inventory from Copart and IAAI with real-time updates every 15 minutes.',
     },
     {
-      icon: '💰',
+      icon: DollarSign,
       title: 'Transparent Pricing',
       description: 'AI-powered cost calculator shows exact landed cost in Nigeria before you bid.',
     },
     {
-      icon: '📍',
+      icon: MapPin,
       title: 'Real-Time Tracking',
       description: 'Track your vehicle from U.S. auction to your doorstep with GPS and live updates.',
     },
     {
-      icon: '🔒',
+      icon: Lock,
       title: 'Secure Payments',
       description: 'Pay in Naira via bank transfer or card. Funds held in escrow until shipment.',
     },
     {
-      icon: '🚢',
+      icon: Ship,
       title: 'End-to-End Logistics',
       description: 'We handle everything: towing, shipping, customs clearance, and final delivery.',
     },
     {
-      icon: '📊',
+      icon: TrendingUp,
       title: 'Market Intelligence',
       description: 'Access Nigerian resale values and profit margin estimates for smarter buying.',
     },
@@ -78,14 +87,14 @@ export default function HomePage() {
             <p className="text-xl mb-8 text-blue-100">
               Access Copart & IAAI auctions, get AI-powered cost estimates, and track your vehicle from bid to delivery.
             </p>
-            <div className="flex gap-4 justify-center">
+            <div className="flex gap-4 justify-center flex-wrap">
               <Link href="/vehicles">
-                <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100">
+                <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100 text-base px-8">
                   Browse Vehicles
                 </Button>
               </Link>
               <Link href="/auth/register">
-                <Button size="lg" variant="outline" className="border-white text-white hover:bg-blue-700 hover:text-white">
+                <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white hover:text-blue-600 text-base px-8">
                   Get Started Free
                 </Button>
               </Link>
@@ -108,17 +117,22 @@ export default function HomePage() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((feature, index) => (
-              <Card key={index} className="border-2 hover:border-blue-500 transition-colors">
-                <CardHeader>
-                  <div className="text-4xl mb-2">{feature.icon}</div>
-                  <CardTitle className="text-xl">{feature.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription>{feature.description}</CardDescription>
-                </CardContent>
-              </Card>
-            ))}
+            {features.map((feature, index) => {
+              const Icon = feature.icon;
+              return (
+                <Card key={index} className="border-2 hover:border-blue-500 transition-colors">
+                  <CardHeader>
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                      <Icon className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <CardTitle className="text-xl">{feature.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription>{feature.description}</CardDescription>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -228,6 +242,59 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Trusted By Section */}
+      <section className="py-16 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl font-bold mb-4 text-gray-600">Trusted Partners & Platforms</h2>
+          </div>
+          
+          <div className="flex flex-wrap items-center justify-center gap-12 md:gap-16 opacity-60">
+            {/* Copart Logo */}
+            <div className="flex items-center">
+              <svg className="h-8 md:h-10" viewBox="0 0 120 40" fill="currentColor">
+                <text x="0" y="30" fontFamily="Arial, sans-serif" fontSize="28" fontWeight="bold" fill="#1e3a8a">
+                  COPART
+                </text>
+              </svg>
+            </div>
+            
+            {/* IAAI Logo */}
+            <div className="flex items-center">
+              <svg className="h-8 md:h-10" viewBox="0 0 80 40" fill="currentColor">
+                <text x="0" y="30" fontFamily="Arial, sans-serif" fontSize="28" fontWeight="bold" fill="#1e3a8a">
+                  IAAI
+                </text>
+              </svg>
+            </div>
+            
+            {/* Paystack */}
+            <div className="flex items-center">
+              <svg className="h-8 md:h-10" viewBox="0 0 120 40" fill="currentColor">
+                <text x="0" y="30" fontFamily="Arial, sans-serif" fontSize="24" fontWeight="600" fill="#1e3a8a">
+                  Paystack
+                </text>
+              </svg>
+            </div>
+            
+            {/* Flutterwave */}
+            <div className="flex items-center">
+              <svg className="h-8 md:h-10" viewBox="0 0 140 40" fill="currentColor">
+                <text x="0" y="30" fontFamily="Arial, sans-serif" fontSize="24" fontWeight="600" fill="#1e3a8a">
+                  Flutterwave
+                </text>
+              </svg>
+            </div>
+            
+            {/* DHL/Shipping */}
+            <div className="flex items-center">
+              <Ship className="w-10 h-10 text-blue-900" />
+              <span className="ml-2 text-xl font-bold text-blue-900">Shipping</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-16 bg-blue-600 text-white">
         <div className="container mx-auto px-4 text-center">
@@ -236,7 +303,7 @@ export default function HomePage() {
             Create your free account and browse thousands of vehicles today
           </p>
           <Link href="/auth/register">
-            <Button size="lg" variant="secondary">
+            <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100 text-base px-8">
               Get Started Now
             </Button>
           </Link>
