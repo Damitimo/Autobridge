@@ -8,12 +8,25 @@ import { cn } from '@/lib/utils';
 export function Navbar() {
   const pathname = usePathname();
   
-  const navItems = [
+  // Check if user is logged in (from localStorage)
+  const isLoggedIn = typeof window !== 'undefined' && localStorage.getItem('authToken');
+  
+  const publicNavItems = [
+    { name: 'Browse Vehicles', href: '/vehicles' },
+    { name: 'How to Buy', href: '/how-to-buy' },
+    { name: 'Shipping', href: '/shipping' },
+    { name: 'About Us', href: '/about' },
+    { name: 'Help', href: '/help' },
+  ];
+
+  const loggedInNavItems = [
     { name: 'Browse Vehicles', href: '/vehicles' },
     { name: 'My Bids', href: '/dashboard/bids' },
     { name: 'Shipments', href: '/dashboard/shipments' },
-    { name: 'How It Works', href: '/how-it-works' },
+    { name: 'Dashboard', href: '/dashboard' },
   ];
+
+  const navItems = isLoggedIn ? loggedInNavItems : publicNavItems;
   
   return (
     <nav className="border-b bg-white sticky top-0 z-50">
@@ -39,16 +52,28 @@ export function Navbar() {
           </div>
           
           <div className="flex items-center space-x-3">
-            <Link href="/auth/login">
-              <Button variant="ghost" size="sm">
-                Login
+            {!isLoggedIn ? (
+              <>
+                <Link href="/auth/login">
+                  <Button variant="ghost" size="sm">
+                    Login
+                  </Button>
+                </Link>
+                <Link href="/auth/register">
+                  <Button size="sm">
+                    Register
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => {
+                localStorage.removeItem('authToken');
+                localStorage.removeItem('user');
+                window.location.href = '/';
+              }}>
+                Logout
               </Button>
-            </Link>
-            <Link href="/auth/register">
-              <Button size="sm">
-                Get Started
-              </Button>
-            </Link>
+            )}
           </div>
         </div>
       </div>

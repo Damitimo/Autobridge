@@ -1,6 +1,13 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from '@/components/ui/carousel';
 import { 
   Car, 
   DollarSign, 
@@ -8,10 +15,75 @@ import {
   Lock, 
   Ship, 
   TrendingUp,
-  CheckCircle2 
+  CheckCircle2,
+  Clock
 } from 'lucide-react';
 
 export default function HomePage() {
+  // Demo cars for carousel (using free Unsplash images)
+  const liveBids = [
+    {
+      id: '1',
+      make: 'Toyota',
+      model: 'Camry',
+      year: 2020,
+      image: 'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=400&h=300&fit=crop',
+      currentBid: '$8,500',
+      timeLeft: '2h 15m',
+      location: 'Los Angeles, CA',
+    },
+    {
+      id: '2',
+      make: 'Honda',
+      model: 'Accord',
+      year: 2019,
+      image: 'https://images.unsplash.com/photo-1590362891991-f776e747a588?w=400&h=300&fit=crop',
+      currentBid: '$12,300',
+      timeLeft: '5h 42m',
+      location: 'Houston, TX',
+    },
+    {
+      id: '3',
+      make: 'BMW',
+      model: '3 Series',
+      year: 2021,
+      image: 'https://images.unsplash.com/photo-1555215695-3004980ad54e?w=400&h=300&fit=crop',
+      currentBid: '$18,750',
+      timeLeft: '1h 08m',
+      location: 'New York, NY',
+    },
+    {
+      id: '4',
+      make: 'Ford',
+      model: 'F-150',
+      year: 2020,
+      image: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=400&h=300&fit=crop',
+      currentBid: '$22,400',
+      timeLeft: '3h 30m',
+      location: 'Dallas, TX',
+    },
+    {
+      id: '5',
+      make: 'Mercedes-Benz',
+      model: 'C-Class',
+      year: 2019,
+      image: 'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=400&h=300&fit=crop',
+      currentBid: '$24,900',
+      timeLeft: '4h 55m',
+      location: 'Miami, FL',
+    },
+    {
+      id: '6',
+      make: 'Lexus',
+      model: 'ES 350',
+      year: 2020,
+      image: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=400&h=300&fit=crop',
+      currentBid: '$16,200',
+      timeLeft: '6h 20m',
+      location: 'Atlanta, GA',
+    },
+  ];
+
   const features = [
     {
       icon: Car,
@@ -94,7 +166,7 @@ export default function HomePage() {
                 </Button>
               </Link>
               <Link href="/auth/register">
-                <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white hover:text-blue-600 text-base px-8">
+                <Button size="lg" variant="secondary" className="text-base px-8">
                   Get Started Free
                 </Button>
               </Link>
@@ -103,6 +175,57 @@ export default function HomePage() {
               Save 15-25% on importation costs · No auction business account needed
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* Live Auctions Carousel */}
+      <section className="py-16 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">Currently Being Bid On</h2>
+            <p className="text-gray-600">Live auctions ending soon - place your bid now!</p>
+          </div>
+
+          <Carousel className="w-full max-w-6xl mx-auto">
+            <CarouselContent className="-ml-2 md:-ml-4">
+              {liveBids.map((car) => (
+                <CarouselItem key={car.id} className="pl-2 md:pl-4 md:basis-1/2 lg:basis-1/3">
+                  <Link href={`/vehicles/${car.id}`}>
+                    <Card className="overflow-hidden hover:shadow-xl transition-shadow cursor-pointer">
+                      <div className="relative h-48 bg-gray-200">
+                        <img
+                          src={car.image}
+                          alt={`${car.year} ${car.make} ${car.model}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-semibold flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {car.timeLeft}
+                        </div>
+                      </div>
+                      <CardContent className="p-4">
+                        <h3 className="font-bold text-lg mb-1">
+                          {car.year} {car.make} {car.model}
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-3">{car.location}</p>
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-xs text-gray-500">Current Bid</p>
+                            <p className="text-xl font-bold text-blue-600">{car.currentBid}</p>
+                          </div>
+                          <Button size="sm">
+                            View Details
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious className="-left-12" />
+            <CarouselNext className="-right-12" />
+          </Carousel>
         </div>
       </section>
 
@@ -171,18 +294,16 @@ export default function HomePage() {
             </div>
             
             <div className="bg-gray-50 rounded-lg p-6 mb-6">
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <p className="text-sm text-gray-600">Auction Price</p>
-                  <p className="text-2xl font-bold">$8,000</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Total Landed Cost</p>
-                  <p className="text-2xl font-bold text-blue-600">₦15,500,000</p>
+              <div className="mb-4">
+                <div className="flex justify-between items-end mb-2">
+                  <div>
+                    <p className="text-sm text-gray-600">Auction Price</p>
+                    <p className="text-2xl font-bold">$8,000</p>
+                  </div>
                 </div>
               </div>
               
-              <div className="space-y-2 text-sm">
+              <div className="space-y-2 text-sm mb-4">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Auction Fees</span>
                   <span>$330</span>
@@ -198,6 +319,10 @@ export default function HomePage() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">All Other Fees</span>
                   <span>$1,070</span>
+                </div>
+                <div className="flex justify-between pt-2 border-t border-gray-300 font-semibold">
+                  <span className="text-gray-700">Total Landed Cost</span>
+                  <span className="text-blue-600">₦15,500,000</span>
                 </div>
               </div>
             </div>
