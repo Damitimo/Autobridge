@@ -272,6 +272,67 @@ export default function VehicleDetailPage() {
     
     try {
       setEstimating(true);
+      
+      // For demo vehicles (1-6), calculate on client side
+      if (['1', '2', '3', '4', '5', '6'].includes(vehicle.id)) {
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        const vehiclePrice = parseFloat(vehicle.currentBid || '0');
+        const exchangeRate = 1550;
+        
+        // Calculate costs
+        const auctionFees = vehiclePrice <= 1000 ? 100 : vehiclePrice <= 4000 ? 200 : vehiclePrice <= 8000 ? 300 : 400;
+        const towing = vehicle.condition === 'non_running' ? 250 : 200;
+        const shipping = shippingMethod === 'roro' ? 1200 : shippingMethod === 'container_shared' ? 1500 : 3500;
+        const insurance = vehiclePrice * 0.02;
+        
+        // Customs duty based on age
+        const currentYear = new Date().getFullYear();
+        const vehicleAge = currentYear - vehicle.year;
+        let customsDuty = vehiclePrice * (vehicleAge <= 5 ? 0.70 : vehicleAge <= 10 ? 0.55 : 0.45);
+        
+        const customsClearance = customsDuty + 150 + 200; // duty + port + agent
+        const localTransport = destinationPort === 'Lagos' ? 50 : 150;
+        const repairCosts = vehicle.condition === 'non_running' ? vehiclePrice * 0.20 : vehiclePrice * 0.08;
+        const platformFee = Math.min(Math.max(vehiclePrice * 0.05, 50), 200);
+        
+        const totalUSD = vehiclePrice + auctionFees + towing + shipping + insurance + customsClearance + localTransport + repairCosts + platformFee;
+        const totalNGN = totalUSD * exchangeRate;
+        
+        // Estimate resale value
+        const popularBrands = ['Toyota', 'Honda', 'Lexus', 'Mercedes-Benz', 'BMW'];
+        const brandMultiplier = popularBrands.includes(vehicle.make) ? 1.4 : 1.2;
+        const estimatedResale = totalNGN * brandMultiplier;
+        const estimatedProfit = estimatedResale - totalNGN;
+        
+        const breakdown = [
+          { category: 'Auction Price', amount: vehiclePrice, currency: 'USD' },
+          { category: 'Auction Fees', amount: auctionFees, currency: 'USD' },
+          { category: 'Towing (Yard to Port)', amount: towing, currency: 'USD' },
+          { category: `Shipping (${shippingMethod.toUpperCase()})`, amount: shipping, currency: 'USD' },
+          { category: 'Insurance', amount: insurance, currency: 'USD' },
+          { category: 'Customs Clearance Fees', amount: customsClearance, currency: 'USD' },
+          { category: 'Local Transport in Nigeria', amount: localTransport, currency: 'USD' },
+          { category: 'Estimated Repair Costs (Nigeria)', amount: repairCosts, currency: 'USD' },
+          { category: 'Platform Service Fee', amount: platformFee, currency: 'USD' },
+        ];
+        
+        setCostEstimate({
+          totalUSD,
+          totalNGN,
+          exchangeRate,
+          estimatedNigerianResaleValue: estimatedResale,
+          estimatedProfitMargin: estimatedProfit,
+          estimatedDaysToDelivery: 40,
+          breakdown,
+        } as CostEstimate);
+        
+        setEstimating(false);
+        return;
+      }
+      
+      // For real vehicles, use API
       const response = await fetch(`/api/vehicles/${vehicle.id}/estimate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
