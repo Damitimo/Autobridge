@@ -116,19 +116,19 @@ export default function HomePage() {
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
             {features.map((feature, index) => {
               const Icon = feature.icon;
               return (
                 <Card key={index} className="border-2 hover:border-blue-500 transition-colors">
-                  <CardHeader>
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                      <Icon className="w-6 h-6 text-blue-600" />
+                  <CardHeader className="text-center">
+                    <div className="w-14 h-14 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                      <Icon className="w-7 h-7 text-blue-600" />
                     </div>
-                    <CardTitle className="text-xl">{feature.title}</CardTitle>
+                    <CardTitle className="text-lg">{feature.title}</CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <CardDescription>{feature.description}</CardDescription>
+                  <CardContent className="text-center">
+                    <CardDescription className="text-sm">{feature.description}</CardDescription>
                   </CardContent>
                 </Card>
               );
@@ -242,54 +242,80 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Trusted By Section */}
-      <section className="py-16 bg-white">
+      {/* Popular Brands Section */}
+      <section className="py-16 bg-gray-50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold mb-4 text-gray-600">Trusted Partners & Platforms</h2>
+            <h2 className="text-2xl font-bold mb-2 text-gray-800">Popular Brands Available</h2>
+            <p className="text-gray-600">Import from top U.S. car manufacturers</p>
           </div>
           
-          <div className="flex flex-wrap items-center justify-center gap-12 md:gap-16 opacity-60">
-            {/* Copart Logo */}
-            <div className="flex items-center">
-              <svg className="h-8 md:h-10" viewBox="0 0 120 40" fill="currentColor">
-                <text x="0" y="30" fontFamily="Arial, sans-serif" fontSize="28" fontWeight="bold" fill="#1e3a8a">
-                  COPART
-                </text>
+          <div className="flex flex-wrap items-center justify-center gap-8 md:gap-12 opacity-70">
+            {/* Toyota */}
+            <div className="flex items-center justify-center w-28 h-16">
+              <svg viewBox="0 0 120 40" className="w-full h-full">
+                <ellipse cx="60" cy="20" rx="18" ry="18" fill="none" stroke="#CC0000" strokeWidth="3"/>
+                <ellipse cx="50" cy="20" rx="10" ry="16" fill="none" stroke="#CC0000" strokeWidth="2.5"/>
+                <ellipse cx="70" cy="20" rx="10" ry="16" fill="none" stroke="#CC0000" strokeWidth="2.5"/>
               </svg>
             </div>
             
-            {/* IAAI Logo */}
-            <div className="flex items-center">
-              <svg className="h-8 md:h-10" viewBox="0 0 80 40" fill="currentColor">
-                <text x="0" y="30" fontFamily="Arial, sans-serif" fontSize="28" fontWeight="bold" fill="#1e3a8a">
-                  IAAI
-                </text>
+            {/* Honda */}
+            <div className="flex items-center justify-center w-24 h-16">
+              <svg viewBox="0 0 100 40" className="w-full h-full">
+                <text x="50" y="28" fontFamily="Arial, sans-serif" fontSize="28" fontWeight="bold" fill="#1a1a1a" textAnchor="middle">H</text>
+                <rect x="30" y="8" width="40" height="24" rx="2" fill="none" stroke="#1a1a1a" strokeWidth="3"/>
               </svg>
             </div>
             
-            {/* Paystack */}
-            <div className="flex items-center">
-              <svg className="h-8 md:h-10" viewBox="0 0 120 40" fill="currentColor">
-                <text x="0" y="30" fontFamily="Arial, sans-serif" fontSize="24" fontWeight="600" fill="#1e3a8a">
-                  Paystack
-                </text>
+            {/* Ford */}
+            <div className="flex items-center justify-center w-28 h-16">
+              <svg viewBox="0 0 120 40" className="w-full h-full">
+                <ellipse cx="60" cy="20" rx="55" ry="18" fill="none" stroke="#003478" strokeWidth="2"/>
+                <text x="60" y="26" fontFamily="Georgia, serif" fontSize="20" fontStyle="italic" fontWeight="bold" fill="#003478" textAnchor="middle">Ford</text>
               </svg>
             </div>
             
-            {/* Flutterwave */}
-            <div className="flex items-center">
-              <svg className="h-8 md:h-10" viewBox="0 0 140 40" fill="currentColor">
-                <text x="0" y="30" fontFamily="Arial, sans-serif" fontSize="24" fontWeight="600" fill="#1e3a8a">
-                  Flutterwave
-                </text>
+            {/* BMW */}
+            <div className="flex items-center justify-center w-20 h-16">
+              <svg viewBox="0 0 80 40" className="w-full h-full">
+                <circle cx="40" cy="20" r="16" fill="none" stroke="#1a1a1a" strokeWidth="2"/>
+                <path d="M 40 4 L 40 20 L 56 20 A 16 16 0 0 0 40 4" fill="#0066B1"/>
+                <path d="M 40 20 L 40 36 L 24 20 A 16 16 0 0 0 40 20" fill="#0066B1"/>
+                <circle cx="40" cy="20" r="18" fill="none" stroke="#1a1a1a" strokeWidth="1.5"/>
               </svg>
             </div>
             
-            {/* DHL/Shipping */}
-            <div className="flex items-center">
-              <Ship className="w-10 h-10 text-blue-900" />
-              <span className="ml-2 text-xl font-bold text-blue-900">Shipping</span>
+            {/* Mercedes */}
+            <div className="flex items-center justify-center w-20 h-16">
+              <svg viewBox="0 0 80 40" className="w-full h-full">
+                <circle cx="40" cy="20" r="16" fill="none" stroke="#1a1a1a" strokeWidth="2"/>
+                <path d="M 40 8 L 40 20 M 40 20 L 28 30 M 40 20 L 52 30" stroke="#1a1a1a" strokeWidth="2" fill="none"/>
+              </svg>
+            </div>
+            
+            {/* Chevrolet */}
+            <div className="flex items-center justify-center w-20 h-16">
+              <svg viewBox="0 0 80 40" className="w-full h-full">
+                <path d="M 20 20 L 40 10 L 60 20 L 40 30 Z" fill="none" stroke="#d4af37" strokeWidth="3"/>
+                <path d="M 20 20 L 40 18 L 60 20" stroke="#d4af37" strokeWidth="2" fill="none"/>
+              </svg>
+            </div>
+            
+            {/* Nissan */}
+            <div className="flex items-center justify-center w-28 h-16">
+              <svg viewBox="0 0 120 40" className="w-full h-full">
+                <circle cx="60" cy="20" r="16" fill="none" stroke="#C3002F" strokeWidth="2"/>
+                <text x="60" y="26" fontFamily="Arial, sans-serif" fontSize="16" fontWeight="bold" fill="#1a1a1a" textAnchor="middle">NISSAN</text>
+              </svg>
+            </div>
+            
+            {/* Lexus */}
+            <div className="flex items-center justify-center w-20 h-16">
+              <svg viewBox="0 0 80 40" className="w-full h-full">
+                <ellipse cx="40" cy="20" rx="18" ry="18" fill="none" stroke="#1a1a1a" strokeWidth="2"/>
+                <text x="40" y="27" fontFamily="Georgia, serif" fontSize="22" fontWeight="bold" fill="#1a1a1a" textAnchor="middle">L</text>
+              </svg>
             </div>
           </div>
         </div>
