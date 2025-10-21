@@ -76,8 +76,11 @@ export async function POST(request: NextRequest) {
     // ========================================
     
     let copartBidId: string | null = null;
-    let bidStatus: 'pending' | 'active' | 'failed' = 'pending';
+    let bidStatus: 'pending' | 'active' | 'failed';
     let errorMessage: string | null = null;
+    
+    // Initialize bidStatus
+    bidStatus = 'pending';
     
     try {
       // Initialize Copart client with your credentials
@@ -204,17 +207,18 @@ export async function POST(request: NextRequest) {
     }
     
     // 8. Return response
+    const isSuccess = bidStatus === 'pending' || bidStatus === 'active';
     return NextResponse.json({
-      success: bidStatus !== 'failed',
+      success: isSuccess,
       data: {
         ...savedBid,
         copartBidId,
         copartStatus: bidStatus,
       },
-      message: bidStatus === 'failed' 
-        ? 'Bid placement failed' 
-        : 'Bid placed successfully on Copart',
-    }, { status: bidStatus === 'failed' ? 500 : 201 });
+      message: isSuccess
+        ? 'Bid placed successfully on Copart'
+        : 'Bid placement failed',
+    }, { status: isSuccess ? 201 : 500 });
     
   } catch (error) {
     if (error instanceof z.ZodError) {

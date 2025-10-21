@@ -57,7 +57,6 @@ export async function POST(request: NextRequest) {
             balanceAfter: wallet.totalBalance,
             status: 'completed',
             description: 'Signup fee payment',
-            reference,
             metadata: { paystackReference: reference },
           });
         }
@@ -78,7 +77,6 @@ export async function POST(request: NextRequest) {
             .set({
               totalBalance: newBalance.toFixed(2),
               availableBalance: newAvailable.toFixed(2),
-              lastFundedAt: new Date(),
             })
             .where(eq(wallets.id, wallet.id));
 
@@ -94,7 +92,6 @@ export async function POST(request: NextRequest) {
             balanceAfter: newBalance.toFixed(2),
             status: 'completed',
             description: 'Wallet funding via Paystack',
-            reference,
             metadata: { paystackReference: reference },
           });
 
