@@ -51,7 +51,10 @@ export function Navbar() {
   const navItems = isLoggedIn ? loggedInNavItems : publicNavItems;
   
   return (
-    <nav className="border-b bg-white sticky top-0 z-50">
+    <nav className={cn(
+      "border-b bg-white sticky top-0 z-50",
+      isLoggedIn && "lg:ml-64"
+    )}>
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="flex items-center space-x-2">
