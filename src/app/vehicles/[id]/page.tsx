@@ -875,9 +875,9 @@ export default function VehicleDetailPage() {
                 <div className="bg-white p-3 rounded border border-blue-200">
                   <p className="text-xs font-semibold text-blue-900 mb-1">Test Card (Demo):</p>
                   <p className="text-xs text-blue-800 font-mono">
-                    Card: 4084 0840 8408 4081<br />
-                    Expiry: 12/30 | CVV: 408<br />
-                    PIN: 0000 | OTP: 123456
+                    Card: 5531886652142950<br />
+                    Expiry: 09/32 | CVV: 564<br />
+                    PIN: 3310 | OTP: 123456
                   </p>
                 </div>
               )}
