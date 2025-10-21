@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Car, TrendingUp, Ship, Gift } from 'lucide-react';
 
 interface User {
   id: string;
@@ -150,7 +151,9 @@ export default function DashboardPage() {
           <Link href="/vehicles">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer">
               <CardContent className="p-6 text-center">
-                <div className="text-4xl mb-3">🚗</div>
+                <div className="flex justify-center mb-3">
+                  <Car className="h-12 w-12 text-blue-600" />
+                </div>
                 <h3 className="font-bold mb-2">Browse Vehicles</h3>
                 <p className="text-sm text-gray-600">Find your next import</p>
               </CardContent>
@@ -160,7 +163,9 @@ export default function DashboardPage() {
           <Link href="/dashboard/bids">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer">
               <CardContent className="p-6 text-center">
-                <div className="text-4xl mb-3">📊</div>
+                <div className="flex justify-center mb-3">
+                  <TrendingUp className="h-12 w-12 text-green-600" />
+                </div>
                 <h3 className="font-bold mb-2">My Bids</h3>
                 <p className="text-sm text-gray-600">Track your auction bids</p>
               </CardContent>
@@ -170,7 +175,9 @@ export default function DashboardPage() {
           <Link href="/dashboard/shipments">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer">
               <CardContent className="p-6 text-center">
-                <div className="text-4xl mb-3">🚢</div>
+                <div className="flex justify-center mb-3">
+                  <Ship className="h-12 w-12 text-purple-600" />
+                </div>
                 <h3 className="font-bold mb-2">Shipments</h3>
                 <p className="text-sm text-gray-600">Track your vehicles</p>
               </CardContent>
@@ -220,7 +227,10 @@ export default function DashboardPage() {
         {/* Referral Section */}
         <Card className="mt-8 bg-gradient-to-r from-blue-600 to-blue-800 text-white">
           <CardContent className="p-6">
-            <h3 className="text-xl font-bold mb-2">Refer & Earn</h3>
+            <div className="flex items-center gap-2 mb-2">
+              <Gift className="h-6 w-6" />
+              <h3 className="text-xl font-bold">Refer & Earn</h3>
+            </div>
             <p className="mb-4">Share your referral code and earn ₦50,000 for each successful referral</p>
             <div className="bg-white text-gray-900 px-4 py-3 rounded-lg font-mono font-bold text-lg inline-block">
               {user.referralCode}

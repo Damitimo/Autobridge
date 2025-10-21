@@ -56,12 +56,17 @@ export function Navbar() {
       isLoggedIn && "lg:ml-64"
     )}>
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          <Link href="/" className="flex items-center space-x-2">
-            <div className="text-2xl font-bold text-blue-600">AutoBridge</div>
-          </Link>
+        <div className="flex items-center justify-between h-20">
+          {!isLoggedIn && (
+            <Link href="/" className="flex items-center space-x-2">
+              <div className="text-2xl font-bold text-blue-600">AutoBridge</div>
+            </Link>
+          )}
           
-          <div className="hidden md:flex items-center space-x-6">
+          <div className={cn(
+            "hidden md:flex items-center space-x-6",
+            isLoggedIn && "flex-1"
+          )}>
             {navItems.map((item) => (
               <Link
                 key={item.href}
