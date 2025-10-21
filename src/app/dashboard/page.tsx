@@ -61,12 +61,6 @@ export default function DashboardPage() {
     });
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    router.push('/');
-  };
-
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -79,16 +73,11 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4">
         {/* Header */}
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">
-              Welcome back, {user.firstName}!
-            </h1>
-            <p className="text-gray-600">Manage your imports and track shipments</p>
-          </div>
-          <Button variant="outline" onClick={handleLogout}>
-            Logout
-          </Button>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">
+            Welcome back, {user.firstName}!
+          </h1>
+          <p className="text-gray-600">Manage your imports and track shipments</p>
         </div>
 
         {/* KYC Warning */}
