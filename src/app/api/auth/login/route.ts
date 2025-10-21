@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { verifyPassword, generateToken } from '@/lib/auth';
+import { getWalletBalance } from '@/lib/wallet';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -60,6 +61,9 @@ export async function POST(request: NextRequest) {
       role: user.role,
     });
     
+    // Get wallet balance
+    const walletBalance = await getWalletBalance(user.id);
+    
     // Remove sensitive data
     const { passwordHash: _, ...userWithoutPassword } = user;
     
@@ -67,6 +71,8 @@ export async function POST(request: NextRequest) {
       success: true,
       user: userWithoutPassword,
       token,
+      wallet: walletBalance,
+      requiresSignupFee: !user.signupFeePaid,
     });
     
   } catch (error) {

@@ -49,12 +49,16 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (data.success) {
-        // Store token
-        localStorage.setItem('authToken', data.token);
+        // Store token (consistent key name)
+        localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         
-        // Redirect to dashboard
-        router.push('/dashboard');
+        // Check for redirect parameter
+        const params = new URLSearchParams(window.location.search);
+        const redirect = params.get('redirect') || '/dashboard';
+        
+        // Redirect
+        router.push(redirect);
       } else {
         setErrors({ submit: data.error || 'Login failed' });
       }

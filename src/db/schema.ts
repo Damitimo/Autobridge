@@ -27,6 +27,13 @@ export const shipmentStatusEnum = pgEnum('shipment_status', [
   'delivered'
 ]);
 export const shippingMethodEnum = pgEnum('shipping_method', ['roro', 'container_shared', 'container_exclusive']);
+export const walletTransactionTypeEnum = pgEnum('wallet_transaction_type', [
+  'deposit', 'withdrawal', 'bid_lock', 'bid_unlock', 'bid_forfeit', 
+  'payment', 'towing_payment', 'shipping_payment', 'signup_fee', 'refund'
+]);
+export const transactionStatusEnum = pgEnum('transaction_status', ['pending', 'completed', 'failed', 'reversed']);
+export const invoiceTypeEnum = pgEnum('invoice_type', ['signup_fee', 'car_purchase', 'towing', 'shipping', 'relisting_fee']);
+export const invoiceStatusEnum = pgEnum('invoice_status', ['pending', 'paid', 'overdue', 'cancelled']);
 
 // Users Table
 export const users = pgTable('users', {
@@ -52,6 +59,11 @@ export const users = pgTable('users', {
   // Referral
   referralCode: varchar('referral_code', { length: 20 }).unique(),
   referredBy: text('referred_by'),
+  
+  // Signup Fee
+  signupFeePaid: boolean('signup_fee_paid').default(false).notNull(),
+  signupFeePaidAt: timestamp('signup_fee_paid_at'),
+  signupFeeAmount: decimal('signup_fee_amount', { precision: 10, scale: 2 }),
   
   // Metadata
   isActive: boolean('is_active').default(true).notNull(),
@@ -132,6 +144,17 @@ export const bids = pgTable('bids', {
   // Auction Result
   finalBidAmount: decimal('final_bid_amount', { precision: 10, scale: 2 }),
   wonAt: timestamp('won_at'),
+  
+  // External Auction House Tracking (Copart/IAAI)
+  externalBidId: varchar('external_bid_id', { length: 100 }), // Copart's bid ID
+  externalSource: auctionSourceEnum('external_source'), // 'copart' or 'iaai'
+  externalStatus: varchar('external_status', { length: 50 }), // Raw status from Copart
+  lastSyncedAt: timestamp('last_synced_at'), // When we last checked with Copart
+  
+  // Deposit Management (10% rule)
+  depositAmount: decimal('deposit_amount', { precision: 10, scale: 2 }),
+  depositLocked: boolean('deposit_locked').default(false).notNull(),
+  depositForfeitedAt: timestamp('deposit_forfeited_at'),
   
   // Notifications
   notificationsSent: jsonb('notifications_sent').$type<{type: string, sentAt: string}[]>().default([]),
@@ -354,6 +377,82 @@ export const supportTickets = pgTable('support_tickets', {
   resolvedAt: timestamp('resolved_at'),
 });
 
+// Wallets Table
+export const wallets = pgTable('wallets', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull().unique().references(() => users.id),
+  
+  // Balances (stored in USD)
+  totalBalance: decimal('total_balance', { precision: 12, scale: 2 }).default('0').notNull(),
+  availableBalance: decimal('available_balance', { precision: 12, scale: 2 }).default('0').notNull(),
+  lockedBalance: decimal('locked_balance', { precision: 12, scale: 2 }).default('0').notNull(),
+  
+  // Metadata
+  currency: varchar('currency', { length: 3 }).default('USD').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Wallet Transactions Table
+export const walletTransactions = pgTable('wallet_transactions', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  walletId: text('wallet_id').notNull().references(() => wallets.id),
+  userId: text('user_id').notNull().references(() => users.id),
+  
+  type: walletTransactionTypeEnum('type').notNull(),
+  amount: decimal('amount', { precision: 12, scale: 2 }).notNull(),
+  currency: varchar('currency', { length: 3 }).notNull(),
+  usdAmount: decimal('usd_amount', { precision: 12, scale: 2 }).notNull(),
+  exchangeRate: decimal('exchange_rate', { precision: 10, scale: 4 }),
+  
+  // Balances after transaction
+  balanceBefore: decimal('balance_before', { precision: 12, scale: 2 }).notNull(),
+  balanceAfter: decimal('balance_after', { precision: 12, scale: 2 }).notNull(),
+  
+  // References
+  bidId: text('bid_id').references(() => bids.id),
+  invoiceId: text('invoice_id'),
+  
+  status: transactionStatusEnum('status').default('pending').notNull(),
+  description: text('description'),
+  metadata: jsonb('metadata'),
+  
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Invoices Table
+export const invoices = pgTable('invoices', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull().references(() => users.id),
+  bidId: text('bid_id').references(() => bids.id),
+  shipmentId: text('shipment_id').references(() => shipments.id),
+  
+  type: invoiceTypeEnum('type').notNull(),
+  
+  // Amounts
+  amount: decimal('amount', { precision: 12, scale: 2 }).notNull(),
+  currency: varchar('currency', { length: 3 }).default('USD').notNull(),
+  ngnEquivalent: decimal('ngn_equivalent', { precision: 12, scale: 2 }),
+  
+  // Payment
+  status: invoiceStatusEnum('status').default('pending').notNull(),
+  dueDate: timestamp('due_date'),
+  paidAt: timestamp('paid_at'),
+  
+  // Line items
+  lineItems: jsonb('line_items').$type<{
+    description: string;
+    amount: number;
+    currency: string;
+  }[]>(),
+  
+  description: text('description'),
+  notes: text('notes'),
+  
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many, one }) => ({
   bids: many(bids),
@@ -362,6 +461,9 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   savedSearches: many(savedSearches),
   notifications: many(notifications),
   supportTickets: many(supportTickets),
+  wallet: one(wallets),
+  walletTransactions: many(walletTransactions),
+  invoices: many(invoices),
   referredUsers: many(users),
   referrer: one(users, {
     fields: [users.referredBy],
@@ -400,5 +502,43 @@ export const shipmentsRelations = relations(shipments, ({ one }) => ({
   vehicle: one(vehicles, {
     fields: [shipments.vehicleId],
     references: [vehicles.id],
+  }),
+}));
+
+export const walletsRelations = relations(wallets, ({ one, many }) => ({
+  user: one(users, {
+    fields: [wallets.userId],
+    references: [users.id],
+  }),
+  transactions: many(walletTransactions),
+}));
+
+export const walletTransactionsRelations = relations(walletTransactions, ({ one }) => ({
+  wallet: one(wallets, {
+    fields: [walletTransactions.walletId],
+    references: [wallets.id],
+  }),
+  user: one(users, {
+    fields: [walletTransactions.userId],
+    references: [users.id],
+  }),
+  bid: one(bids, {
+    fields: [walletTransactions.bidId],
+    references: [bids.id],
+  }),
+}));
+
+export const invoicesRelations = relations(invoices, ({ one }) => ({
+  user: one(users, {
+    fields: [invoices.userId],
+    references: [users.id],
+  }),
+  bid: one(bids, {
+    fields: [invoices.bidId],
+    references: [bids.id],
+  }),
+  shipment: one(shipments, {
+    fields: [invoices.shipmentId],
+    references: [shipments.id],
   }),
 }));

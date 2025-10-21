@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { bids, vehicles, users } from '@/db/schema';
 import { getUserFromToken } from '@/lib/auth';
+import { checkBidEligibility, lockDepositForBid } from '@/lib/wallet';
 import { sendNotification, NotificationTemplates } from '@/lib/notifications';
 import { eq, and } from 'drizzle-orm';
 import { z } from 'zod';
@@ -33,13 +34,21 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Check KYC status
-    if (user.kycStatus !== 'verified') {
+    // Check signup fee
+    if (!user.signupFeePaid) {
       return NextResponse.json(
-        { error: 'KYC verification required before bidding' },
+        { error: 'Please pay ₦100,000 signup fee to start bidding', message: 'Signup fee required' },
         { status: 403 }
       );
     }
+    
+    // Check KYC status (optional for MVP - comment out if not ready)
+    // if (user.kycStatus !== 'verified') {
+    //   return NextResponse.json(
+    //     { error: 'KYC verification required before bidding' },
+    //     { status: 403 }
+    //   );
+    // }
     
     // Parse request
     const body = await request.json();
@@ -65,6 +74,18 @@ export async function POST(request: NextRequest) {
         { error: 'Auction has already ended' },
         { status: 400 }
       );
+    }
+    
+    // Check wallet eligibility (10% deposit rule)
+    const eligibility = await checkBidEligibility(user.id, validated.maxBidAmount);
+    if (!eligibility.eligible) {
+      return NextResponse.json({
+        error: `Insufficient wallet balance. Need $${eligibility.requiredDeposit.toFixed(2)} deposit (10%), you have $${eligibility.availableBalance.toFixed(2)}. Please fund your wallet.`,
+        message: 'Insufficient balance',
+        required: eligibility.requiredDeposit,
+        available: eligibility.availableBalance,
+        shortfall: eligibility.shortfall,
+      }, { status: 403 });
     }
     
     // Check if user already has a bid on this vehicle
@@ -109,6 +130,15 @@ export async function POST(request: NextRequest) {
         status: 'pending',
       })
       .returning();
+    
+    // Lock 10% deposit in wallet
+    try {
+      await lockDepositForBid(user.id, newBid.id, validated.maxBidAmount);
+    } catch (walletError) {
+      // If deposit locking fails, delete the bid
+      await db.delete(bids).where(eq(bids.id, newBid.id));
+      throw walletError;
+    }
     
     // Send notification
     await sendNotification({

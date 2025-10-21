@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { FormInput } from '@/components/ui/form-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
 interface Vehicle {
@@ -56,26 +58,59 @@ export default function VehicleDetailPage() {
   const [estimating, setEstimating] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
   const [bidAmount, setBidAmount] = useState('');
-  const [shippingMethod, setShippingMethod] = useState<'roro' | 'container_shared' | 'container_exclusive'>('roro');
-  const [destinationPort, setDestinationPort] = useState<'Lagos' | 'Port Harcourt'>('Lagos');
+  const [walletBalance, setWalletBalance] = useState<{available: number, total: number, locked: number} | null>(null);
+  const [showFundModal, setShowFundModal] = useState(false);
+  const [fundCurrency, setFundCurrency] = useState<'NGN' | 'USD'>('NGN');
+  const [fundAmount, setFundAmount] = useState('');
+  const [funding, setFunding] = useState(false);
 
   useEffect(() => {
     if (params.id) {
       fetchVehicle();
     }
+    // Fetch wallet balance on mount
+    fetchWalletBalance();
   }, [params.id]);
 
   useEffect(() => {
     if (vehicle) {
       calculateCost();
     }
-  }, [vehicle, shippingMethod, destinationPort]);
+  }, [vehicle, bidAmount]);
+
+  const fetchWalletBalance = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch('/api/wallet/balance', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setWalletBalance(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching wallet balance:', error);
+    }
+  };
 
   const fetchVehicle = async () => {
     try {
       setLoading(true);
       
-      // Demo cars data (for now, before API integration)
+      // Fetch from API
+      const response = await fetch(`/api/vehicles/${params.id}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setVehicle(data.data);
+        setBidAmount(data.data.currentBid || '');
+        setLoading(false);
+        return;
+      }
+      
+      // Fallback: Demo cars data (only if API fails)
       const demoCars: { [key: string]: Vehicle } = {
         '1': {
           id: '1',
@@ -273,18 +308,20 @@ export default function VehicleDetailPage() {
     try {
       setEstimating(true);
       
-      // For demo vehicles (1-6), calculate on client side
-      if (['1', '2', '3', '4', '5', '6'].includes(vehicle.id)) {
+      // Calculate on client side for all vehicles (MVP approach)
+      if (vehicle.id) {
         // Simulate API delay
         await new Promise(resolve => setTimeout(resolve, 800));
         
-        const vehiclePrice = parseFloat(vehicle.currentBid || '0');
+        // Use buyer's bid amount if provided, otherwise use current bid
+        const vehiclePrice = bidAmount && parseFloat(bidAmount) > 0 ? parseFloat(bidAmount) : parseFloat(vehicle.currentBid || '0');
         const exchangeRate = 1550;
         
         // Calculate costs
         const auctionFees = vehiclePrice <= 1000 ? 100 : vehiclePrice <= 4000 ? 200 : vehiclePrice <= 8000 ? 300 : 400;
         const towing = vehicle.condition === 'non_running' ? 250 : 200;
-        const shipping = shippingMethod === 'roro' ? 1200 : shippingMethod === 'container_shared' ? 1500 : 3500;
+        // Fixed shipping cost (RoRo default)
+        const shipping = 1200;
         const insurance = vehiclePrice * 0.02;
         
         // Customs duty based on age
@@ -293,7 +330,7 @@ export default function VehicleDetailPage() {
         let customsDuty = vehiclePrice * (vehicleAge <= 5 ? 0.70 : vehicleAge <= 10 ? 0.55 : 0.45);
         
         const customsClearance = customsDuty + 150 + 200; // duty + port + agent
-        const localTransport = destinationPort === 'Lagos' ? 50 : 150;
+        const localTransport = 50; // Default: Lagos
         const repairCosts = vehicle.condition === 'non_running' ? vehiclePrice * 0.20 : vehiclePrice * 0.08;
         const platformFee = Math.min(Math.max(vehiclePrice * 0.05, 50), 200);
         
@@ -310,7 +347,7 @@ export default function VehicleDetailPage() {
           { category: 'Auction Price', amount: vehiclePrice, currency: 'USD' },
           { category: 'Auction Fees', amount: auctionFees, currency: 'USD' },
           { category: 'Towing (Yard to Port)', amount: towing, currency: 'USD' },
-          { category: `Shipping (${shippingMethod.toUpperCase()})`, amount: shipping, currency: 'USD' },
+          { category: 'Shipping (RoRo to Nigeria)', amount: shipping, currency: 'USD' },
           { category: 'Insurance', amount: insurance, currency: 'USD' },
           { category: 'Customs Clearance Fees', amount: customsClearance, currency: 'USD' },
           { category: 'Local Transport in Nigeria', amount: localTransport, currency: 'USD' },
@@ -337,9 +374,9 @@ export default function VehicleDetailPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          destinationPort,
-          destinationCity: destinationPort,
-          shippingMethod,
+          destinationPort: 'Lagos',
+          destinationCity: 'Lagos',
+          shippingMethod: 'roro', // Fixed: RoRo shipping by default
         }),
       });
       
@@ -356,9 +393,106 @@ export default function VehicleDetailPage() {
   };
 
   const handlePlaceBid = async () => {
-    // TODO: Implement bid placement with authentication
-    alert('Bid placement requires login. Redirecting to login page...');
-    window.location.href = '/auth/login';
+    try {
+      // Check if logged in
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Please login to place a bid');
+        window.location.href = '/auth/login?redirect=' + window.location.pathname;
+        return;
+      }
+
+      // Validate bid amount
+      if (!bidAmount || parseFloat(bidAmount) <= 0) {
+        alert('Please enter a valid bid amount');
+        return;
+      }
+
+      const bidValue = parseFloat(bidAmount);
+
+      // Place bid
+      const response = await fetch('/api/bids', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          vehicleId: vehicle?.id,
+          maxBidAmount: bidValue,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(`Bid placed successfully! Deposit of $${(bidValue * 0.10).toFixed(2)} locked in your wallet.`);
+        // Redirect to bids page
+        window.location.href = '/dashboard/bids';
+      } else {
+        // Handle specific errors
+        if (response.status === 403) {
+          if (data.error?.includes('signup fee')) {
+            alert(data.message || data.error);
+            window.location.href = '/signup-fee';
+          } else if (data.error?.includes('wallet') || data.error?.includes('balance')) {
+            // Show fund wallet modal instead of redirecting
+            setShowFundModal(true);
+          } else {
+            alert(data.message || data.error);
+          }
+        } else {
+          alert(data.error || 'Failed to place bid. Please try again.');
+        }
+      }
+    } catch (error) {
+      console.error('Bid placement error:', error);
+      alert('An error occurred. Please try again.');
+    }
+  };
+
+  const handleFundWallet = async () => {
+    if (!fundAmount || parseFloat(fundAmount) <= 0) {
+      alert('Please enter a valid amount');
+      return;
+    }
+
+    try {
+      setFunding(true);
+      const token = localStorage.getItem('token');
+
+      const response = await fetch('/api/wallet/fund', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          amount: parseFloat(fundAmount),
+          currency: fundCurrency,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        if (fundCurrency === 'NGN' && data.authorizationUrl) {
+          // Redirect to Paystack
+          window.location.href = data.authorizationUrl;
+        } else if (fundCurrency === 'USD') {
+          // Show wire transfer instructions
+          alert('Wire transfer instructions:\n\n' + JSON.stringify(data.instructions, null, 2));
+          setShowFundModal(false);
+        }
+      } else {
+        alert(data.error || 'Failed to initiate payment');
+      }
+    } catch (error) {
+      console.error('Funding error:', error);
+      alert('Failed to fund wallet');
+    } finally {
+      setFunding(false);
+    }
   };
 
   if (loading) {
@@ -543,30 +677,25 @@ export default function VehicleDetailPage() {
               <CardContent className="pt-6">
                 <div className="space-y-4 mb-6">
                   <div>
-                    <label className="block text-sm font-medium mb-2">Destination Port</label>
-                    <Select value={destinationPort} onValueChange={(value) => setDestinationPort(value as 'Lagos' | 'Port Harcourt')}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select port" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Lagos">Lagos</SelectItem>
-                        <SelectItem value="Port Harcourt">Port Harcourt</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Shipping Method</label>
-                    <Select value={shippingMethod} onValueChange={(value) => setShippingMethod(value as any)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select shipping method" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="roro">RoRo (Roll-on/Roll-off)</SelectItem>
-                        <SelectItem value="container_shared">Shared Container</SelectItem>
-                        <SelectItem value="container_exclusive">Exclusive Container</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <label className="block text-sm font-medium mb-2">Your Maximum Bid ($)</label>
+                    <Input
+                      type="number"
+                      placeholder="Enter your maximum bid amount"
+                      value={bidAmount}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                        setBidAmount(e.target.value);
+                        // Recalculate when bid amount changes
+                        if (e.target.value) {
+                          calculateCost();
+                        }
+                      }}
+                      className="text-lg font-semibold"
+                    />
+                    {bidAmount && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        10% Deposit Required: ${(parseFloat(bidAmount) * 0.10).toFixed(2)}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -623,21 +752,50 @@ export default function VehicleDetailPage() {
                     </div>
 
                     <div className="space-y-3">
-                      <FormInput
-                        type="number"
-                        label="Your Maximum Bid ($)"
-                        placeholder="Enter maximum bid amount"
-                        value={bidAmount}
-                        onChange={(e) => setBidAmount(e.target.value)}
-                      />
-                      
                       <Button
                         size="lg"
                         className="w-full"
                         onClick={handlePlaceBid}
+                        disabled={!bidAmount || parseFloat(bidAmount) <= 0}
                       >
                         Place Bid on This Vehicle
                       </Button>
+                      
+                      {/* Wallet Balance Display */}
+                      {walletBalance && bidAmount && (
+                        <div className="bg-gray-50 border rounded-lg p-4 space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Available Balance:</span>
+                            <span className="font-semibold text-gray-900">${walletBalance.available.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Required Deposit (10%):</span>
+                            <span className="font-semibold text-gray-900">
+                              ${(parseFloat(bidAmount) * 0.10).toFixed(2)}
+                            </span>
+                          </div>
+                          
+                          {walletBalance.available < (parseFloat(bidAmount) * 0.10) ? (
+                            <>
+                              <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded mt-2">
+                                <span className="text-xs font-semibold text-red-700 uppercase">⚠️ Insufficient Funds</span>
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full border-blue-300 text-blue-600 hover:bg-blue-50"
+                                onClick={() => setShowFundModal(true)}
+                              >
+                                Fund Wallet
+                              </Button>
+                            </>
+                          ) : (
+                            <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded mt-2">
+                              <span className="text-xs font-semibold text-green-700">✓ Sufficient Balance</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       
                       <p className="text-xs text-gray-600 text-center">
                         We'll bid on your behalf up to your maximum amount
@@ -650,6 +808,82 @@ export default function VehicleDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Fund Wallet Modal */}
+      <Dialog open={showFundModal} onOpenChange={setShowFundModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Fund Wallet</DialogTitle>
+            <DialogDescription>
+              Add money to your wallet to place this bid
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Currency</label>
+              <Select 
+                value={fundCurrency} 
+                onValueChange={(value: 'NGN' | 'USD') => setFundCurrency(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NGN">Nigerian Naira (₦)</SelectItem>
+                  <SelectItem value="USD">US Dollar ($)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Amount</label>
+              <Input
+                type="number"
+                placeholder={fundCurrency === 'NGN' ? '₦50,000' : '$100'}
+                value={fundAmount}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFundAmount(e.target.value)}
+              />
+              {fundCurrency === 'NGN' && fundAmount && (
+                <p className="text-sm text-gray-600 mt-1">
+                  ≈ ${(parseFloat(fundAmount) / 1550).toFixed(2)} USD
+                </p>
+              )}
+            </div>
+
+            {walletBalance && bidAmount && (
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <p className="text-sm text-blue-900">
+                  <strong>Required deposit:</strong> ${(parseFloat(bidAmount) * 0.10).toFixed(2)}
+                  <br />
+                  <strong>Current balance:</strong> ${walletBalance.available.toFixed(2)}
+                  <br />
+                  <strong>Shortfall:</strong> ${Math.max(0, (parseFloat(bidAmount) * 0.10) - walletBalance.available).toFixed(2)}
+                </p>
+              </div>
+            )}
+
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <p className="text-sm text-blue-900">
+                {fundCurrency === 'NGN' ? (
+                  <>💳 You will be redirected to Paystack to complete payment securely</>
+                ) : (
+                  <>🏦 Wire transfer instructions will be provided after submission</>
+                )}
+              </p>
+            </div>
+
+            <Button 
+              onClick={handleFundWallet}
+              disabled={funding}
+              className="w-full"
+              size="lg"
+            >
+              {funding ? 'Processing...' : `Fund Wallet (${fundCurrency})`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

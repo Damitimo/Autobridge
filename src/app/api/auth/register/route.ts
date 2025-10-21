@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { hashPassword, generateToken } from '@/lib/auth';
 import { generateReferralCode } from '@/lib/utils';
+import { createWallet } from '@/lib/wallet';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -97,6 +98,9 @@ export async function POST(request: NextRequest) {
       })
       .returning();
     
+    // Auto-create wallet for new user
+    await createWallet(newUser.id);
+    
     // Generate JWT token
     const token = generateToken({
       userId: newUser.id,
@@ -111,6 +115,8 @@ export async function POST(request: NextRequest) {
       success: true,
       user: userWithoutPassword,
       token,
+      message: 'Account created successfully! Wallet initialized.',
+      nextStep: 'Pay ₦100,000 signup fee to start bidding',
     }, { status: 201 });
     
   } catch (error) {

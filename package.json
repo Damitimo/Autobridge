@@ -11,7 +11,9 @@
     "db:generate": "drizzle-kit generate:pg",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "scraper:sync": "tsx src/jobs/sync-vehicles-scraper.ts",
+    "scraper:test": "tsx -e \"import { testScraper } from './src/lib/copart-scraper'; testScraper().then(() => process.exit(0)).catch(() => process.exit(1))\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
@@ -27,9 +29,11 @@
     "axios": "^1.6.8",
     "bcryptjs": "^2.4.3",
     "bull": "^4.12.2",
+    "cheerio": "^1.0.0-rc.12",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
+    "dotenv": "^17.2.3",
     "drizzle-orm": "^0.30.0",
     "embla-carousel-react": "^8.6.0",
     "jsonwebtoken": "^9.0.2",
@@ -51,6 +55,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/cheerio": "^0.22.35",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20.11.30",
     "@types/react": "^18.2.73",

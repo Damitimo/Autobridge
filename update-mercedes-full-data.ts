@@ -1,0 +1,215 @@
+import { db } from './src/db/index';
+import { vehicles } from './src/db/schema';
+import { eq } from 'drizzle-orm';
+
+const fullMercedesData = [
+  {
+    lotNumber: '83780695',
+    year: 2016,
+    make: 'Mercedes-Benz',
+    model: 'CLA',
+    trim: '250',
+    vin: '4T1BF1FK6CU' + Math.floor(Math.random() * 1000000),
+    bodyStyle: 'Sedan',
+    color: 'Polar Silver Metallic',
+    titleStatus: 'clean' as const,
+    condition: 'running' as const,
+    primaryDamage: 'Front End',
+    secondaryDamage: 'Minor Scratches',
+    odometer: 52340,
+    odometerUnit: 'miles',
+    currentBid: '7200',
+    estimatedValue: '18000',
+    auctionLocation: 'San Antonio, TX',
+    auctionLocationState: 'TX',
+    auctionDate: new Date('2025-11-05'),
+    engineType: '2.0L Turbo I4',
+    transmission: 'Automatic 7-Speed',
+    driveType: 'FWD',
+    fuelType: 'Gasoline',
+    cylinders: 4,
+    hasKeys: true,
+    images: [
+      'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=1200',
+      'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?w=1200',
+      'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=1200',
+    ],
+    thumbnailUrl: 'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=800',
+  },
+  {
+    lotNumber: '82140875',
+    year: 2017,
+    make: 'Mercedes-Benz',
+    model: 'CLA',
+    trim: '250',
+    vin: '5T1BF1FK7CU' + Math.floor(Math.random() * 1000000),
+    bodyStyle: 'Sedan',
+    color: 'Night Black',
+    titleStatus: 'clean' as const,
+    condition: 'running' as const,
+    primaryDamage: 'Rear End',
+    secondaryDamage: null,
+    odometer: 45890,
+    odometerUnit: 'miles',
+    currentBid: '9800',
+    estimatedValue: '22000',
+    auctionLocation: 'Van Nuys, CA',
+    auctionLocationState: 'CA',
+    auctionDate: new Date('2025-11-03'),
+    engineType: '2.0L Turbo I4',
+    transmission: 'Automatic 7-Speed DCT',
+    driveType: 'FWD',
+    fuelType: 'Gasoline',
+    cylinders: 4,
+    hasKeys: true,
+    images: [
+      'https://images.unsplash.com/photo-1563720360172-67b8f3dce741?w=1200',
+      'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=1200',
+      'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=1200',
+    ],
+    thumbnailUrl: 'https://images.unsplash.com/photo-1563720360172-67b8f3dce741?w=800',
+  },
+  {
+    lotNumber: '89578735',
+    year: 2019,
+    make: 'Mercedes-Benz',
+    model: 'G-Class',
+    trim: '63 AMG',
+    vin: '6T1BF1FK8CU' + Math.floor(Math.random() * 1000000),
+    bodyStyle: 'SUV',
+    color: 'Obsidian Black Metallic',
+    titleStatus: 'salvage' as const,
+    condition: 'non_running' as const,
+    primaryDamage: 'Front End',
+    secondaryDamage: 'Undercarriage',
+    odometer: 28450,
+    odometerUnit: 'miles',
+    currentBid: '42500',
+    estimatedValue: '85000',
+    auctionLocation: 'Mocksville, NC',
+    auctionLocationState: 'NC',
+    auctionDate: new Date('2025-11-08'),
+    engineType: '4.0L V8 Biturbo',
+    transmission: 'Automatic 9-Speed',
+    driveType: 'AWD',
+    fuelType: 'Gasoline',
+    cylinders: 8,
+    hasKeys: false,
+    images: [
+      'https://images.unsplash.com/photo-1619405399517-d7fce0f13302?w=1200',
+      'https://images.unsplash.com/photo-1617886903355-9354bb57751f?w=1200',
+      'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=1200',
+      'https://images.unsplash.com/photo-1618843479619-f3d0d3da6e66?w=1200',
+    ],
+    thumbnailUrl: 'https://images.unsplash.com/photo-1619405399517-d7fce0f13302?w=800',
+  },
+  {
+    lotNumber: '89572965',
+    year: 2017,
+    make: 'Mercedes-Benz',
+    model: 'GLE Coupe',
+    trim: '43 AMG',
+    vin: '7T1BF1FK9CU' + Math.floor(Math.random() * 1000000),
+    bodyStyle: 'SUV',
+    color: 'Selenite Grey Metallic',
+    titleStatus: 'clean' as const,
+    condition: 'running' as const,
+    primaryDamage: 'Side',
+    secondaryDamage: 'Airbag Deployed',
+    odometer: 41200,
+    odometerUnit: 'miles',
+    currentBid: '28500',
+    estimatedValue: '48000',
+    auctionLocation: 'Orlando South, FL',
+    auctionLocationState: 'FL',
+    auctionDate: new Date('2025-11-06'),
+    engineType: '3.0L V6 Biturbo',
+    transmission: 'Automatic 9-Speed',
+    driveType: 'AWD',
+    fuelType: 'Gasoline',
+    cylinders: 6,
+    hasKeys: true,
+    images: [
+      'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=1200',
+      'https://images.unsplash.com/photo-1618843479619-f3d0d3da6e66?w=1200',
+      'https://images.unsplash.com/photo-1617814076367-b759c7d7e738?w=1200',
+    ],
+    thumbnailUrl: 'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=800',
+  },
+  {
+    lotNumber: '89510735',
+    year: 2009,
+    make: 'Mercedes-Benz',
+    model: 'C-Class',
+    trim: '300 4MATIC',
+    vin: '8T1BF1FK0CU' + Math.floor(Math.random() * 1000000),
+    bodyStyle: 'Sedan',
+    color: 'Diamond White Metallic',
+    titleStatus: 'salvage' as const,
+    condition: 'running' as const,
+    primaryDamage: 'Left Front',
+    secondaryDamage: 'Left Side',
+    odometer: 128500,
+    odometerUnit: 'miles',
+    currentBid: '3200',
+    estimatedValue: '8500',
+    auctionLocation: 'Charleston, WV',
+    auctionLocationState: 'WV',
+    auctionDate: new Date('2025-11-02'),
+    engineType: '3.0L V6',
+    transmission: 'Automatic 7-Speed',
+    driveType: 'AWD',
+    fuelType: 'Gasoline',
+    cylinders: 6,
+    hasKeys: true,
+    images: [
+      'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=1200',
+      'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=1200',
+    ],
+    thumbnailUrl: 'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=800',
+  },
+];
+
+async function updateFullData() {
+  console.log('📊 Updating Mercedes vehicles with comprehensive data...\n');
+  
+  for (const data of fullMercedesData) {
+    await db.update(vehicles)
+      .set({
+        vin: data.vin,
+        bodyStyle: data.bodyStyle,
+        color: data.color,
+        primaryDamage: data.primaryDamage,
+        secondaryDamage: data.secondaryDamage,
+        odometer: data.odometer,
+        odometerUnit: data.odometerUnit,
+        currentBid: data.currentBid,
+        estimatedValue: data.estimatedValue,
+        auctionDate: data.auctionDate,
+        engineType: data.engineType,
+        transmission: data.transmission,
+        driveType: data.driveType,
+        fuelType: data.fuelType,
+        cylinders: data.cylinders,
+        hasKeys: data.hasKeys,
+        images: data.images,
+        thumbnailUrl: data.thumbnailUrl,
+      })
+      .where(eq(vehicles.lotNumber, data.lotNumber));
+    
+    console.log(`✅ Updated: ${data.year} ${data.make} ${data.model} ${data.trim}`);
+    console.log(`   Lot: ${data.lotNumber}`);
+    console.log(`   VIN: ${data.vin}`);
+    console.log(`   Bid: $${data.currentBid} | Odometer: ${data.odometer.toLocaleString()} mi`);
+    console.log(`   Engine: ${data.engineType} | ${data.transmission}`);
+    console.log(`   Images: ${data.images.length} photos`);
+    console.log('');
+  }
+  
+  console.log('✨ All Mercedes updated with comprehensive data!');
+  console.log('📸 High-quality images added');
+  console.log('🔧 Full mechanical specs included\n');
+  process.exit(0);
+}
+
+updateFullData().catch(console.error);

@@ -82,12 +82,16 @@ export default function RegisterPage() {
       const data = await response.json();
 
       if (data.success) {
-        // Store token
-        localStorage.setItem('authToken', data.token);
+        // Store token (consistent key name)
+        localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         
-        // Redirect to dashboard
-        router.push('/dashboard');
+        // Redirect to dashboard or signup fee page
+        if (data.user.signupFeePaid) {
+          router.push('/dashboard');
+        } else {
+          router.push('/signup-fee');
+        }
       } else {
         setErrors({ submit: data.error || 'Registration failed' });
       }

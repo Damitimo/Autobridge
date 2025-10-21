@@ -1,15 +1,39 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { Wallet } from 'lucide-react';
 
 export function Navbar() {
   const pathname = usePathname();
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
   
   // Check if user is logged in (from localStorage)
-  const isLoggedIn = typeof window !== 'undefined' && localStorage.getItem('authToken');
+  const isLoggedIn = typeof window !== 'undefined' && localStorage.getItem('token');
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchWalletBalance();
+    }
+  }, [isLoggedIn, pathname]);
+
+  const fetchWalletBalance = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/wallet/balance', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setWalletBalance(data.data.available);
+      }
+    } catch (error) {
+      console.error('Error fetching wallet balance:', error);
+    }
+  };
   
   const publicNavItems = [
     { name: 'Browse Vehicles', href: '/vehicles' },
@@ -21,8 +45,6 @@ export function Navbar() {
 
   const loggedInNavItems = [
     { name: 'Browse Vehicles', href: '/vehicles' },
-    { name: 'My Bids', href: '/dashboard/bids' },
-    { name: 'Shipments', href: '/dashboard/shipments' },
     { name: 'Dashboard', href: '/dashboard' },
   ];
 
@@ -66,13 +88,23 @@ export function Navbar() {
                 </Link>
               </>
             ) : (
-              <Button variant="outline" size="sm" onClick={() => {
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('user');
-                window.location.href = '/';
-              }}>
-                Logout
-              </Button>
+              <>
+                <Link href="/dashboard/wallet">
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-50 border border-green-200 hover:bg-green-100 transition-colors">
+                    <Wallet className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-semibold text-green-700">
+                      ${walletBalance !== null ? walletBalance.toFixed(2) : '0.00'}
+                    </span>
+                  </div>
+                </Link>
+                <Button variant="outline" size="sm" onClick={() => {
+                  localStorage.removeItem('token');
+                  localStorage.removeItem('user');
+                  window.location.href = '/';
+                }}>
+                  Logout
+                </Button>
+              </>
             )}
           </div>
         </div>

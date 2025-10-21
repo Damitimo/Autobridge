@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { vehicles } from '@/db/schema';
-import { and, eq, gte, lte, ilike, inArray, sql } from 'drizzle-orm';
+import { and, eq, gte, lte, ilike, inArray, sql, desc, asc } from 'drizzle-orm';
 import { z } from 'zod';
 
 const searchSchema = z.object({
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       priceMax: searchParams.get('priceMax') ? parseFloat(searchParams.get('priceMax')!) : undefined,
       condition: searchParams.get('condition')?.split(','),
       titleStatus: searchParams.get('titleStatus')?.split(','),
-      auctionSource: searchParams.get('auctionSource') as 'copart' | 'iaai' | undefined,
+      auctionSource: (searchParams.get('auctionSource') as 'copart' | 'iaai') || undefined,
       state: searchParams.get('state') || undefined,
       page: parseInt(searchParams.get('page') || '1'),
       limit: parseInt(searchParams.get('limit') || '20'),
@@ -88,6 +88,13 @@ export async function GET(request: NextRequest) {
       .from(vehicles)
       .where(conditions.length > 0 ? and(...conditions) : undefined);
     
+    // Determine sort column
+    const sortColumn = validated.sortBy === 'price' 
+      ? vehicles.currentBid 
+      : validated.sortBy === 'auction_date' 
+      ? vehicles.auctionDate 
+      : vehicles.year;
+    
     // Get vehicles
     const results = await db
       .select()
@@ -95,11 +102,7 @@ export async function GET(request: NextRequest) {
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .limit(validated.limit)
       .offset(offset)
-      .orderBy(
-        validated.sortOrder === 'desc'
-          ? sql`${vehicles[validated.sortBy === 'price' ? 'currentBid' : validated.sortBy === 'auction_date' ? 'auctionDate' : 'year']} DESC`
-          : sql`${vehicles[validated.sortBy === 'price' ? 'currentBid' : validated.sortBy === 'auction_date' ? 'auctionDate' : 'year']} ASC`
-      );
+      .orderBy(validated.sortOrder === 'desc' ? desc(sortColumn) : asc(sortColumn));
     
     return NextResponse.json({
       success: true,
