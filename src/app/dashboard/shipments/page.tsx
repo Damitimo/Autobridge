@@ -106,7 +106,7 @@ export default function ShipmentsPage() {
             </Link>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {shipments.map((item) => (
               <Card key={item.shipment.id} className="overflow-hidden">
                 <CardContent className="p-6">
