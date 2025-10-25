@@ -48,19 +48,19 @@ interface Bid {
   };
 }
 
-const CountdownTimer = ({ auctionDate, onComplete }: { auctionDate: string | null; onComplete: () => void }) => {
+const CountdownTimer = ({ bidCreatedAt, onComplete }: { bidCreatedAt: string | null; onComplete: () => void }) => {
   const [timeLeft, setTimeLeft] = useState('');
   const [isComplete, setIsComplete] = useState(false);
 
   useEffect(() => {
-    if (!auctionDate) {
+    if (!bidCreatedAt) {
       setTimeLeft('TBA');
       return;
     }
 
     const calculateTimeLeft = () => {
-      // Results typically announced 2 minutes after auction (for testing)
-      const resultDate = new Date(auctionDate);
+      // Results announced 2 minutes after bid placed (for testing)
+      const resultDate = new Date(bidCreatedAt);
       resultDate.setMinutes(resultDate.getMinutes() + 2);
       
       const now = new Date().getTime();
@@ -79,8 +79,9 @@ const CountdownTimer = ({ auctionDate, onComplete }: { auctionDate: string | nul
       const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
+      // Always show seconds for better visibility
       if (days > 0) {
-        return `${days}d ${hours}h ${minutes}m`;
+        return `${days}d ${hours}h ${minutes}m ${seconds}s`;
       } else if (hours > 0) {
         return `${hours}h ${minutes}m ${seconds}s`;
       } else {
@@ -95,7 +96,7 @@ const CountdownTimer = ({ auctionDate, onComplete }: { auctionDate: string | nul
     setTimeLeft(calculateTimeLeft());
 
     return () => clearInterval(timer);
-  }, [auctionDate]);
+  }, [bidCreatedAt]);
 
   return (
     <p className="font-semibold">{timeLeft}</p>
@@ -347,7 +348,7 @@ export default function BidsPage() {
                         <div>
                           <p className="text-gray-600">Results In</p>
                           <CountdownTimer 
-                            auctionDate={item.vehicle.auctionDate}
+                            bidCreatedAt={item.bid.createdAt}
                             onComplete={async () => {
                               try {
                                 const token = localStorage.getItem('token');
