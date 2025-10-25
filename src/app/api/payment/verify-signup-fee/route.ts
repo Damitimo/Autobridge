@@ -8,6 +8,8 @@ import crypto from 'crypto';
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || '';
 const SIGNUP_FEE_NGN = 100000;
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     // Verify Paystack signature

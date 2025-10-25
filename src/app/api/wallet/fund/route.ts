@@ -11,6 +11,8 @@ const fundSchema = z.object({
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || '';
 const PAYSTACK_PUBLIC_KEY = process.env.PAYSTACK_PUBLIC_KEY || '';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -54,6 +56,9 @@ export async function POST(request: NextRequest) {
       });
 
       const paystackData = await paystackResponse.json();
+      
+      // Log Paystack response for debugging
+      console.log('Paystack initialization response:', JSON.stringify(paystackData, null, 2));
 
       if (paystackData.status) {
         return NextResponse.json({
@@ -62,8 +67,10 @@ export async function POST(request: NextRequest) {
           reference,
         });
       } else {
+        console.error('Paystack initialization failed:', paystackData);
         return NextResponse.json({
           error: paystackData.message || 'Failed to initialize payment',
+          details: paystackData,
         }, { status: 400 });
       }
     }

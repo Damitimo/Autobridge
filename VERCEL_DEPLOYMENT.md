@@ -102,7 +102,7 @@ Your app will be live at: `https://your-app-name.vercel.app`
 
 Test:
 1. Register new user
-2. Apply coupon code: `NOKINGS`
+2. Complete signup fee
 3. Browse vehicles
 4. Fund wallet
 5. Place bid

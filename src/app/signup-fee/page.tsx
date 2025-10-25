@@ -212,8 +212,8 @@ export default function SignupFeePage() {
                 {applyingCoupon ? 'Applying...' : 'Apply'}
               </Button>
             </div>
-            <p className="text-xs text-blue-700 mt-2">
-              Enter "NOKINGS" to waive the signup fee
+            <p className="text-xs text-blue-700 mt-2 font-medium">
+              COUPON: NOKINGS
             </p>
           </div>
 

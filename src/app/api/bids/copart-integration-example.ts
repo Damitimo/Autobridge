@@ -63,13 +63,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Vehicle not found' }, { status: 404 });
     }
     
-    // 5. Check auction hasn't ended (existing code)
-    if (vehicle.auctionDate && new Date(vehicle.auctionDate) < new Date()) {
-      return NextResponse.json(
-        { error: 'Auction has already ended' },
-        { status: 400 }
-      );
-    }
+    // 5. Check auction hasn't ended (existing code) - DISABLED FOR TESTING
+    // if (vehicle.auctionDate && new Date(vehicle.auctionDate) < new Date()) {
+    //   return NextResponse.json(
+    //     { error: 'Auction has already ended' },
+    //     { status: 400 }
+    //   );
+    // }
     
     // ========================================
     // NEW: Place bid on Copart

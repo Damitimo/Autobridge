@@ -6,6 +6,8 @@ import { calculateCost } from '@/lib/cost-calculator';
 import { getUserFromToken } from '@/lib/auth';
 import { z } from 'zod';
 
+export const dynamic = 'force-dynamic';
+
 const estimateSchema = z.object({
   destinationPort: z.enum(['Lagos', 'Port Harcourt']).default('Lagos'),
   destinationCity: z.string().default('Lagos'),

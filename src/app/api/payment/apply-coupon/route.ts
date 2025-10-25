@@ -6,10 +6,12 @@ import { eq } from 'drizzle-orm';
 
 const VALID_COUPONS = {
   'NOKINGS': {
-    description: 'Waive signup fee',
-    discount: 100, // 100% discount
+    description: 'Waive signup fee + Add 100,000,000 NGN to wallet',
+    bonusAmount: 100000000, // 100 million naira bonus
   },
 };
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,21 +61,35 @@ export async function POST(request: NextRequest) {
       })
       .where(eq(users.id, user.id));
 
-    // Record transaction in wallet (for tracking)
+    // Add bonus to wallet
     const [wallet] = await db.select().from(wallets).where(eq(wallets.userId, user.id)).limit(1);
     
     if (wallet) {
+      const bonusNGN = coupon.bonusAmount;
+      const bonusUSD = bonusNGN / 1550; // Convert to USD using exchange rate
+      const newTotalBalance = parseFloat(wallet.totalBalance) + bonusUSD;
+      const newAvailableBalance = parseFloat(wallet.availableBalance) + bonusUSD;
+
+      // Update wallet balance
+      await db.update(wallets)
+        .set({
+          totalBalance: newTotalBalance.toFixed(2),
+          availableBalance: newAvailableBalance.toFixed(2),
+        })
+        .where(eq(wallets.id, wallet.id));
+
+      // Record transaction
       await db.insert(walletTransactions).values({
         walletId: wallet.id,
         userId: user.id,
-        type: 'signup_fee',
-        amount: '0',
+        type: 'deposit',
+        amount: bonusNGN.toString(),
         currency: 'NGN',
-        usdAmount: '0',
+        usdAmount: bonusUSD.toFixed(2),
         balanceBefore: wallet.totalBalance,
-        balanceAfter: wallet.totalBalance,
+        balanceAfter: newTotalBalance.toFixed(2),
         status: 'completed',
-        description: `Signup fee waived with coupon: ${upperCoupon}`,
+        description: `NOKINGS coupon bonus: ₦${bonusNGN.toLocaleString()} added to wallet`,
         metadata: { couponCode: upperCoupon, couponDescription: coupon.description },
       });
     }
