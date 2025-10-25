@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Search } from 'lucide-react';
+import Link from 'next/link';
 
 interface Vehicle {
   id: string;
@@ -72,9 +73,8 @@ export default function VehiclesPage() {
   const popularMakes = ['Toyota', 'Honda', 'Ford', 'Chevrolet', 'Nissan', 'BMW', 'Mercedes-Benz', 'Lexus'];
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="container mx-auto px-4">
-        <h1 className="text-4xl font-bold mb-8">Browse Vehicles</h1>
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-8">
         
         {/* Search and Filters */}
         <Card className="mb-8">

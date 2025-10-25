@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/utils';
+import { CheckCircle, Clock } from 'lucide-react';
 
 interface Shipment {
   shipment: {
@@ -32,7 +33,7 @@ export default function ShipmentsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('token');
     if (!token) {
       router.push('/auth/login');
       return;
@@ -105,45 +106,103 @@ export default function ShipmentsPage() {
             </Link>
           </Card>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {shipments.map((item) => (
-              <Link key={item.shipment.id} href={`/dashboard/shipments/${item.shipment.id}`}>
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-bold text-lg mb-2">
-                          {item.vehicle.year} {item.vehicle.make} {item.vehicle.model}
-                        </h3>
-                        <p className="text-sm text-gray-600 mb-2">
-                          VIN: {item.vehicle.vin}
-                        </p>
-                        <div className="flex items-center gap-4">
-                          <Badge variant={getStatusVariant(item.shipment.status)}>
-                            {item.shipment.status.replace(/_/g, ' ').toUpperCase()}
-                          </Badge>
-                          <span className="text-sm text-gray-600">
-                            Created: {formatDate(item.shipment.createdAt, 'short')}
-                          </span>
-                        </div>
-                      </div>
+              <Card key={item.shipment.id} className="overflow-hidden">
+                <CardContent className="p-6">
+                  {/* Vehicle Info */}
+                  <div>
+                      <h3 className="text-xl font-bold mb-1">
+                        {item.vehicle.year} {item.vehicle.make} {item.vehicle.model}
+                      </h3>
+                      <p className="text-sm text-gray-600 mb-3">
+                        VIN: {item.vehicle.vin}
+                      </p>
                       
-                      <div className="text-right">
-                        {item.bid.finalBidAmount && (
-                          <p className="text-xl font-bold text-blue-600 mb-2">
-                            ${parseFloat(item.bid.finalBidAmount).toLocaleString()}
-                          </p>
-                        )}
-                        {item.shipment.estimatedArrivalAt && (
+                      {item.bid.finalBidAmount && (
+                        <p className="text-lg font-bold text-blue-600 mb-2">
+                          ${parseFloat(item.bid.finalBidAmount).toLocaleString()}
+                        </p>
+                      )}
+                      
+                      {item.shipment.estimatedArrivalAt && (
+                        <div className="bg-gray-50 border rounded-lg p-3 mt-4">
                           <p className="text-sm text-gray-600">
-                            ETA: {formatDate(item.shipment.estimatedArrivalAt, 'short')}
+                            <strong>ETA:</strong> {formatDate(item.shipment.estimatedArrivalAt, 'short')}
                           </p>
-                        )}
+                          <p className="text-xs text-gray-500 mt-1">
+                            45-60 days from payment
+                          </p>
+                        </div>
+                      )}
+                  </div>
+
+                  <div className="border-t my-4"></div>
+
+                  {/* Progress Tracker */}
+                  <div className="space-y-3">
+                    {/* Payment Received - Always completed */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                        <CheckCircle className="h-4 w-4 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm text-green-700">Payment Received</h4>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </Link>
+
+                    {/* Preparing for Pickup */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
+                        <Clock className="h-4 w-4 text-gray-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm text-gray-600">Preparing for Pickup</h4>
+                      </div>
+                    </div>
+
+                    {/* In Transit to Port */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
+                        <Clock className="h-4 w-4 text-gray-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm text-gray-600">In Transit to Port</h4>
+                      </div>
+                    </div>
+
+                    {/* Shipped to Nigeria */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
+                        <Clock className="h-4 w-4 text-gray-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm text-gray-600">Shipped to Nigeria</h4>
+                      </div>
+                    </div>
+
+                    {/* Customs Clearance */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
+                        <Clock className="h-4 w-4 text-gray-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm text-gray-600">Customs Clearance</h4>
+                      </div>
+                    </div>
+
+                    {/* Ready for Pickup */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
+                        <Clock className="h-4 w-4 text-gray-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm text-gray-600">Ready for Pickup</h4>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         )}

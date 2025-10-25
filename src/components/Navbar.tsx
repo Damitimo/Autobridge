@@ -13,6 +13,7 @@ export function Navbar() {
   
   // Check if user is logged in (from localStorage)
   const isLoggedIn = typeof window !== 'undefined' && localStorage.getItem('token');
+  const isDashboard = pathname?.startsWith('/dashboard');
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -53,20 +54,17 @@ export function Navbar() {
   return (
     <nav className={cn(
       "border-b bg-white sticky top-0 z-50",
-      isLoggedIn && "lg:ml-64"
+      isDashboard && "lg:ml-64"
     )}>
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">
-          {!isLoggedIn && (
+          {!isDashboard && (
             <Link href="/" className="flex items-center space-x-2">
               <div className="text-2xl font-bold text-blue-600">AutoBridge</div>
             </Link>
           )}
           
-          <div className={cn(
-            "hidden md:flex items-center space-x-6",
-            isLoggedIn && "flex-1"
-          )}>
+          <div className="hidden md:flex items-center space-x-6 flex-1 justify-center">
             {navItems.map((item) => (
               <Link
                 key={item.href}

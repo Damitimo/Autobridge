@@ -9,6 +9,8 @@ import { FormInput } from '@/components/ui/form-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 
 interface Vehicle {
   id: string;
@@ -63,10 +65,12 @@ export default function VehicleDetailPage() {
   const [fundCurrency, setFundCurrency] = useState<'NGN' | 'USD'>('NGN');
   const [fundAmount, setFundAmount] = useState('');
   const [funding, setFunding] = useState(false);
+  const [hasExistingBid, setHasExistingBid] = useState(false);
 
   useEffect(() => {
     if (params.id) {
       fetchVehicle();
+      checkExistingBid();
     }
     // Fetch wallet balance on mount
     fetchWalletBalance();
@@ -77,6 +81,27 @@ export default function VehicleDetailPage() {
       calculateCost();
     }
   }, [vehicle, bidAmount]);
+
+  const checkExistingBid = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch('/api/bids', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        const existingBid = data.data.find((item: any) => item.vehicle.id === params.id);
+        setHasExistingBid(!!existingBid);
+      }
+    } catch (error) {
+      console.error('Error checking existing bid:', error);
+    }
+  };
 
   const fetchWalletBalance = async () => {
     try {
@@ -521,8 +546,8 @@ export default function VehicleDetailPage() {
   const images = vehicle.images || [vehicle.thumbnailUrl || '/placeholder-car.jpg'];
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="container mx-auto px-4">
+    <>
+      <div className="container mx-auto px-4 py-8">
         {/* Vehicle Title Header */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold mb-2">
@@ -662,7 +687,8 @@ export default function VehicleDetailPage() {
 
           {/* Right Column - Cost Calculator (Sticky) */}
           <div className="space-y-6">
-            {/* Cost Calculator */}
+            {/* Cost Calculator - Only show if user hasn't bid yet */}
+            {!hasExistingBid && (
             <Card className="sticky top-24 border-2 border-blue-500">
               <CardHeader className="bg-blue-50">
                 <div className="mb-4">
@@ -805,6 +831,7 @@ export default function VehicleDetailPage() {
                 ) : null}
               </CardContent>
             </Card>
+            )}
           </div>
         </div>
       </div>
@@ -894,7 +921,8 @@ export default function VehicleDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </>
   );
 }
 

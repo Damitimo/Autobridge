@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { 
   ShoppingCart, 
   AlertCircle, 
@@ -16,6 +17,8 @@ import {
   Clock
 } from 'lucide-react';
 import Link from 'next/link';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface Bid {
@@ -45,8 +48,9 @@ interface Bid {
   };
 }
 
-const CountdownTimer = ({ auctionDate }: { auctionDate: string | null }) => {
+const CountdownTimer = ({ auctionDate, onComplete }: { auctionDate: string | null; onComplete: () => void }) => {
   const [timeLeft, setTimeLeft] = useState('');
+  const [isComplete, setIsComplete] = useState(false);
 
   useEffect(() => {
     if (!auctionDate) {
@@ -63,7 +67,11 @@ const CountdownTimer = ({ auctionDate }: { auctionDate: string | null }) => {
       const distance = resultDate.getTime() - now;
 
       if (distance < 0) {
-        return 'Results Available';
+        if (!isComplete) {
+          setIsComplete(true);
+          onComplete();
+        }
+        return 'Bidding Won!';
       }
 
       const days = Math.floor(distance / (1000 * 60 * 60 * 24));
@@ -106,6 +114,13 @@ export default function BidsPage() {
   const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showFundModal, setShowFundModal] = useState(false);
+  const [fundCurrency, setFundCurrency] = useState<'NGN' | 'USD'>('NGN');
+  const [fundAmount, setFundAmount] = useState('');
+  const [funding, setFunding] = useState(false);
+  const [showShipmentModal, setShowShipmentModal] = useState(false);
+  const [selectedShipment, setSelectedShipment] = useState<any>(null);
+  const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
     fetchBids();
@@ -137,7 +152,7 @@ export default function BidsPage() {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      pending: { color: 'bg-yellow-100 text-yellow-800 border-yellow-300', icon: Clock, label: 'Pending' },
+      pending: { color: 'bg-blue-100 text-blue-800 border-blue-300', icon: Clock, label: 'In Progress' },
       won: { color: 'bg-green-100 text-green-800 border-green-300', icon: CheckCircle, label: 'Won' },
       lost: { color: 'bg-red-100 text-red-800 border-red-300', icon: XCircle, label: 'Lost' },
       outbid: { color: 'bg-orange-100 text-orange-800 border-orange-300', icon: TrendingUp, label: 'Outbid' },
@@ -224,12 +239,12 @@ export default function BidsPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Pending</p>
+                <p className="text-sm text-gray-600">In Progress</p>
                 <p className="text-2xl font-bold">
                   {bids.filter(b => b.bid.status === 'pending').length}
                 </p>
               </div>
-              <Clock className="h-8 w-8 text-yellow-600" />
+              <Clock className="h-8 w-8 text-blue-600" />
             </div>
           </CardContent>
         </Card>
@@ -284,12 +299,12 @@ export default function BidsPage() {
               <CardContent className="p-6">
                 <div className="flex flex-col md:flex-row gap-6">
                   {/* Vehicle Image */}
-                  <div className="w-full md:w-48 h-36 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                  <div className="w-full md:w-48 min-h-[200px] bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 self-stretch">
                     {item.vehicle.imageUrl ? (
                       <img
                         src={item.vehicle.imageUrl}
                         alt={`${item.vehicle.year} ${item.vehicle.make} ${item.vehicle.model}`}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full min-h-full object-cover"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
@@ -347,24 +362,320 @@ export default function BidsPage() {
                     )}
 
                     <div className="flex gap-3 pt-2">
-                      {item.bid.status === 'pending' && (
-                        <CountdownTimer auctionDate={item.vehicle.auctionDate} />
+                      <Link href={`/vehicles/${item.vehicle.id}`}>
+                        <Button variant="outline" size="sm">
+                          View Details
+                        </Button>
+                      </Link>
+                      {item.bid.status === 'won' && !item.bid.finalBidAmount && (
+                        <Button 
+                          size="sm" 
+                          className="bg-green-600 hover:bg-green-700"
+                          disabled={processing}
+                          onClick={async () => {
+                            const vehiclePrice = parseFloat(item.bid.maxBidAmount);
+                            const confirmPayment = confirm(
+                              `Complete payment for ${item.vehicle.year} ${item.vehicle.make} ${item.vehicle.model}?\n\n` +
+                              `Amount: $${vehiclePrice.toLocaleString()}\n\n` +
+                              `This will be deducted from your wallet balance.`
+                            );
+                            
+                            if (confirmPayment) {
+                              try {
+                                setProcessing(true);
+                                const token = localStorage.getItem('token');
+                                const response = await fetch('/api/payment/process-vehicle', {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`,
+                                  },
+                                  body: JSON.stringify({ bidId: item.bid.id }),
+                                });
+
+                                const data = await response.json();
+
+                                if (data.success) {
+                                  // Update local state to mark as paid
+                                  setBids(prevBids => 
+                                    prevBids.map(b => 
+                                      b.bid.id === item.bid.id 
+                                        ? { ...b, bid: { ...b.bid, finalBidAmount: b.bid.maxBidAmount } }
+                                        : b
+                                    )
+                                  );
+                                  alert('Payment successful! Your vehicle is being prepared for shipment.');
+                                } else {
+                                  alert(data.error || 'Payment failed');
+                                }
+                              } catch (error) {
+                                console.error('Payment error:', error);
+                                alert('Payment failed. Please try again.');
+                              } finally {
+                                setProcessing(false);
+                              }
+                            }
+                          }}
+                        >
+                          {processing ? 'Processing...' : 'Make Payment'}
+                        </Button>
                       )}
-                      {item.bid.status === 'won' && (
-                        <Link href="/dashboard/shipments">
-                          <Button size="sm">
-                            Track Shipment
-                          </Button>
-                        </Link>
+                      {item.bid.status === 'won' && item.bid.finalBidAmount && (
+                        <Button 
+                          size="sm" 
+                          className="bg-blue-600 hover:bg-blue-700"
+                          onClick={() => {
+                            setSelectedShipment(item);
+                            setShowShipmentModal(true);
+                          }}
+                        >
+                          Track Shipment
+                        </Button>
                       )}
                     </div>
                   </div>
+
+                  {/* Countdown Timer - Right Side */}
+                  {item.bid.status === 'pending' && (
+                    <div className="flex items-center">
+                      <CountdownTimer 
+                        auctionDate={item.vehicle.auctionDate}
+                        onComplete={async () => {
+                          // Update bid status in database
+                          try {
+                            const token = localStorage.getItem('token');
+                            const response = await fetch('/api/bids/update-status', {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`,
+                              },
+                              body: JSON.stringify({ 
+                                bidId: item.bid.id,
+                                status: 'won'
+                              }),
+                            });
+
+                            if (response.ok) {
+                              // Update local state
+                              setBids(prevBids => 
+                                prevBids.map(b => 
+                                  b.bid.id === item.bid.id 
+                                    ? { ...b, bid: { ...b.bid, status: 'won' } }
+                                    : b
+                                )
+                              );
+                            }
+                          } catch (error) {
+                            console.error('Failed to update bid status:', error);
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      {/* Fund Wallet Modal */}
+      <Dialog open={showFundModal} onOpenChange={setShowFundModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Fund Your Wallet</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Select Currency</label>
+              <Select value={fundCurrency} onValueChange={(value: 'NGN' | 'USD') => setFundCurrency(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NGN">Nigerian Naira (₦)</SelectItem>
+                  <SelectItem value="USD">US Dollar ($)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Amount ({fundCurrency === 'NGN' ? '₦' : '$'})
+              </label>
+              <Input
+                type="number"
+                placeholder="Enter amount"
+                value={fundAmount}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFundAmount(e.target.value)}
+              />
+              {fundCurrency === 'NGN' && fundAmount && (
+                <p className="text-sm text-gray-600 mt-1">
+                  ≈ ${(parseFloat(fundAmount) / 1550).toFixed(2)} USD
+                </p>
+              )}
+            </div>
+
+            <Button
+              className="w-full"
+              onClick={async () => {
+                if (!fundAmount || parseFloat(fundAmount) <= 0) {
+                  alert('Please enter a valid amount');
+                  return;
+                }
+
+                try {
+                  setFunding(true);
+                  const token = localStorage.getItem('token');
+                  const response = await fetch('/api/wallet/fund', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                      amount: parseFloat(fundAmount),
+                      currency: fundCurrency,
+                    }),
+                  });
+
+                  const data = await response.json();
+
+                  if (data.success) {
+                    if (fundCurrency === 'NGN' && data.authorizationUrl) {
+                      window.location.href = data.authorizationUrl;
+                    } else {
+                      alert('Wire transfer instructions sent! Check your email.');
+                      setShowFundModal(false);
+                    }
+                  } else {
+                    alert(data.error || 'Failed to initiate payment');
+                  }
+                } catch (error) {
+                  console.error('Fund wallet error:', error);
+                  alert('Failed to process payment');
+                } finally {
+                  setFunding(false);
+                }
+              }}
+              disabled={funding || !fundAmount || parseFloat(fundAmount) <= 0}
+            >
+              {funding ? 'Processing...' : `Fund Wallet (${fundCurrency})`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Shipment Tracking Modal */}
+      <Dialog open={showShipmentModal} onOpenChange={setShowShipmentModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Track Shipment</DialogTitle>
+          </DialogHeader>
+          {selectedShipment && (
+            <div className="space-y-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="font-bold text-lg mb-2">
+                  {selectedShipment.vehicle.year} {selectedShipment.vehicle.make} {selectedShipment.vehicle.model}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  VIN: {selectedShipment.vehicle.vin}
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="mt-1">
+                    <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                      <CheckCircle className="h-5 w-5 text-white" />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-green-700">Payment Received</h4>
+                    <p className="text-sm text-gray-600">Your payment has been processed successfully</p>
+                    <p className="text-xs text-gray-500 mt-1">Current Status</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="mt-1">
+                    <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
+                      <Clock className="h-5 w-5 text-gray-600" />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-600">Preparing for Pickup</h4>
+                    <p className="text-sm text-gray-600">Vehicle is being prepared for pickup from auction</p>
+                    <p className="text-xs text-gray-500 mt-1">Upcoming</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="mt-1">
+                    <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
+                      <Clock className="h-5 w-5 text-gray-600" />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-600">In Transit to Port</h4>
+                    <p className="text-sm text-gray-600">Vehicle will be transported to US port</p>
+                    <p className="text-xs text-gray-500 mt-1">Upcoming</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="mt-1">
+                    <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
+                      <Clock className="h-5 w-5 text-gray-600" />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-600">Shipped to Nigeria</h4>
+                    <p className="text-sm text-gray-600">Vehicle on vessel to Lagos port</p>
+                    <p className="text-xs text-gray-500 mt-1">Upcoming</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="mt-1">
+                    <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
+                      <Clock className="h-5 w-5 text-gray-600" />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-600">Customs Clearance</h4>
+                    <p className="text-sm text-gray-600">Processing customs documentation</p>
+                    <p className="text-xs text-gray-500 mt-1">Upcoming</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
+                  <div className="mt-1">
+                    <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
+                      <Clock className="h-5 w-5 text-gray-600" />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-600">Ready for Pickup</h4>
+                    <p className="text-sm text-gray-600">Vehicle cleared and ready for collection</p>
+                    <p className="text-xs text-gray-500 mt-1">Upcoming</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 border rounded-lg p-4">
+                <p className="text-sm text-gray-600">
+                  <strong>Estimated Delivery:</strong> 45-60 days from payment
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  We'll notify you at each step of the shipping process
+                </p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
