@@ -59,9 +59,9 @@ const CountdownTimer = ({ auctionDate, onComplete }: { auctionDate: string | nul
     }
 
     const calculateTimeLeft = () => {
-      // Results typically announced 24 hours after auction
+      // Results typically announced 2 minutes after auction (for testing)
       const resultDate = new Date(auctionDate);
-      resultDate.setHours(resultDate.getHours() + 24);
+      resultDate.setMinutes(resultDate.getMinutes() + 2);
       
       const now = new Date().getTime();
       const distance = resultDate.getTime() - now;
@@ -98,15 +98,7 @@ const CountdownTimer = ({ auctionDate, onComplete }: { auctionDate: string | nul
   }, [auctionDate]);
 
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-      <div className="flex items-center gap-2">
-        <Clock className="h-4 w-4 text-blue-600" />
-        <div>
-          <p className="text-xs text-blue-600 font-medium">Results In:</p>
-          <p className="text-sm font-bold text-blue-800">{timeLeft}</p>
-        </div>
-      </div>
-    </div>
+    <p className="font-semibold">{timeLeft}</p>
   );
 };
 
@@ -295,7 +287,10 @@ export default function BidsPage() {
       ) : (
         <div className="space-y-4">
           {bids.map((item) => (
-            <Card key={item.bid.id} className="hover:shadow-lg transition-shadow">
+            <Card key={item.bid.id} className="hover:shadow-lg transition-shadow relative">
+              <div className="absolute top-4 right-4 z-10">
+                {getStatusBadge(item.bid.status)}
+              </div>
               <CardContent className="p-6">
                 <div className="flex flex-col md:flex-row gap-6">
                   {/* Vehicle Image */}
@@ -315,19 +310,16 @@ export default function BidsPage() {
 
                   {/* Vehicle Details */}
                   <div className="flex-1 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-xl font-bold text-gray-900">
-                          {item.vehicle.year} {item.vehicle.make} {item.vehicle.model}
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          VIN: {item.vehicle.vin} • Lot: {item.vehicle.lotNumber}
-                        </p>
-                      </div>
-                      {getStatusBadge(item.bid.status)}
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900">
+                        {item.vehicle.year} {item.vehicle.make} {item.vehicle.model}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        VIN: {item.vehicle.vin} • Lot: {item.vehicle.lotNumber}
+                      </p>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                       <div>
                         <p className="text-gray-600">Your Max Bid</p>
                         <p className="font-semibold text-lg text-blue-600">
@@ -351,6 +343,42 @@ export default function BidsPage() {
                         <p className="text-gray-600">Location</p>
                         <p className="font-semibold">{item.vehicle.location}</p>
                       </div>
+                      {item.bid.status === 'pending' && (
+                        <div>
+                          <p className="text-gray-600">Results In</p>
+                          <CountdownTimer 
+                            auctionDate={item.vehicle.auctionDate}
+                            onComplete={async () => {
+                              try {
+                                const token = localStorage.getItem('token');
+                                const response = await fetch('/api/bids/update-status', {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`,
+                                  },
+                                  body: JSON.stringify({ 
+                                    bidId: item.bid.id,
+                                    status: 'won'
+                                  }),
+                                });
+
+                                if (response.ok) {
+                                  setBids(prevBids => 
+                                    prevBids.map(b => 
+                                      b.bid.id === item.bid.id 
+                                        ? { ...b, bid: { ...b.bid, status: 'won' } }
+                                        : b
+                                    )
+                                  );
+                                }
+                              } catch (error) {
+                                console.error('Failed to update bid status:', error);
+                              }
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
 
                     {item.vehicle.primaryDamage && (
@@ -434,45 +462,6 @@ export default function BidsPage() {
                       )}
                     </div>
                   </div>
-
-                  {/* Countdown Timer - Right Side */}
-                  {item.bid.status === 'pending' && (
-                    <div className="flex items-center">
-                      <CountdownTimer 
-                        auctionDate={item.vehicle.auctionDate}
-                        onComplete={async () => {
-                          // Update bid status in database
-                          try {
-                            const token = localStorage.getItem('token');
-                            const response = await fetch('/api/bids/update-status', {
-                              method: 'POST',
-                              headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`,
-                              },
-                              body: JSON.stringify({ 
-                                bidId: item.bid.id,
-                                status: 'won'
-                              }),
-                            });
-
-                            if (response.ok) {
-                              // Update local state
-                              setBids(prevBids => 
-                                prevBids.map(b => 
-                                  b.bid.id === item.bid.id 
-                                    ? { ...b, bid: { ...b.bid, status: 'won' } }
-                                    : b
-                                )
-                              );
-                            }
-                          } catch (error) {
-                            console.error('Failed to update bid status:', error);
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
