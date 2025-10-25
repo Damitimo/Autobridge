@@ -546,7 +546,7 @@ export default function VehicleDetailPage() {
   const images = vehicle.images || [vehicle.thumbnailUrl || '/placeholder-car.jpg'];
 
   return (
-    <>
+    <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
         {/* Vehicle Title Header */}
         <div className="mb-6">
@@ -921,8 +921,7 @@ export default function VehicleDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
-      </div>
-    </>
+    </div>
   );
 }
 
