@@ -45,6 +45,63 @@ interface Bid {
   };
 }
 
+const CountdownTimer = ({ auctionDate }: { auctionDate: string | null }) => {
+  const [timeLeft, setTimeLeft] = useState('');
+
+  useEffect(() => {
+    if (!auctionDate) {
+      setTimeLeft('TBA');
+      return;
+    }
+
+    const calculateTimeLeft = () => {
+      // Results typically announced 24 hours after auction
+      const resultDate = new Date(auctionDate);
+      resultDate.setHours(resultDate.getHours() + 24);
+      
+      const now = new Date().getTime();
+      const distance = resultDate.getTime() - now;
+
+      if (distance < 0) {
+        return 'Results Available';
+      }
+
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+      if (days > 0) {
+        return `${days}d ${hours}h ${minutes}m`;
+      } else if (hours > 0) {
+        return `${hours}h ${minutes}m ${seconds}s`;
+      } else {
+        return `${minutes}m ${seconds}s`;
+      }
+    };
+
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
+
+    setTimeLeft(calculateTimeLeft());
+
+    return () => clearInterval(timer);
+  }, [auctionDate]);
+
+  return (
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+      <div className="flex items-center gap-2">
+        <Clock className="h-4 w-4 text-blue-600" />
+        <div>
+          <p className="text-xs text-blue-600 font-medium">Results In:</p>
+          <p className="text-sm font-bold text-blue-800">{timeLeft}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function BidsPage() {
   const [bids, setBids] = useState<Bid[]>([]);
   const [loading, setLoading] = useState(true);
@@ -290,11 +347,9 @@ export default function BidsPage() {
                     )}
 
                     <div className="flex gap-3 pt-2">
-                      <Link href={`/vehicles/${item.vehicle.id}`}>
-                        <Button variant="outline" size="sm">
-                          View Details
-                        </Button>
-                      </Link>
+                      {item.bid.status === 'pending' && (
+                        <CountdownTimer auctionDate={item.vehicle.auctionDate} />
+                      )}
                       {item.bid.status === 'won' && (
                         <Link href="/dashboard/shipments">
                           <Button size="sm">
