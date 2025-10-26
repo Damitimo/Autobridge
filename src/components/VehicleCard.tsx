@@ -25,7 +25,7 @@ interface VehicleCardProps {
 }
 
 export function VehicleCard({ vehicle }: VehicleCardProps) {
-  const imageUrl = vehicle.thumbnailUrl || vehicle.images?.[0] || '/placeholder-car.jpg';
+  const imageUrl = vehicle.thumbnailUrl || vehicle.images?.[0] || 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=400&h=300&fit=crop';
   const currentBid = vehicle.currentBid ? parseFloat(vehicle.currentBid) : 0;
   
   return (
@@ -37,7 +37,7 @@ export function VehicleCard({ vehicle }: VehicleCardProps) {
             alt={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
             className="w-full h-full object-cover"
             onError={(e) => {
-              e.currentTarget.src = '/placeholder-car.jpg';
+              e.currentTarget.src = 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=400&h=300&fit=crop';
             }}
           />
           {vehicle.titleStatus && (

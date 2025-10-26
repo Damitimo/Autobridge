@@ -543,7 +543,7 @@ export default function VehicleDetailPage() {
     );
   }
 
-  const images = vehicle.images || [vehicle.thumbnailUrl || '/placeholder-car.jpg'];
+  const images = vehicle.images || [vehicle.thumbnailUrl || 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=800&h=600&fit=crop'];
 
   return (
     <div className="min-h-screen bg-gray-50">
