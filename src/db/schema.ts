@@ -65,6 +65,11 @@ export const users = pgTable('users', {
   signupFeePaidAt: timestamp('signup_fee_paid_at'),
   signupFeeAmount: decimal('signup_fee_amount', { precision: 10, scale: 2 }),
   
+  // KYC Review (Admin)
+  kycReviewedBy: text('kyc_reviewed_by'),
+  kycReviewedAt: timestamp('kyc_reviewed_at'),
+  kycRejectionReason: text('kyc_rejection_reason'),
+
   // Metadata
   isActive: boolean('is_active').default(true).notNull(),
   emailVerified: boolean('email_verified').default(false).notNull(),
@@ -250,7 +255,11 @@ export const shipments = pgTable('shipments', {
   
   // Notes
   notes: text('notes'),
-  
+
+  // Admin tracking
+  statusUpdatedBy: text('status_updated_by'),
+  statusUpdatedAt: timestamp('status_updated_at'),
+
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -451,6 +460,49 @@ export const invoices = pgTable('invoices', {
   
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// KYC Documents Table
+export const kycDocuments = pgTable('kyc_documents', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull().references(() => users.id),
+
+  documentType: varchar('document_type', { length: 50 }).notNull(), // 'nin', 'passport', 'drivers_license', 'utility_bill', 'selfie', 'bvn_slip'
+  fileUrl: text('file_url').notNull(),
+  fileName: varchar('file_name', { length: 255 }).notNull(),
+
+  status: varchar('status', { length: 20 }).default('pending').notNull(), // 'pending', 'approved', 'rejected'
+  rejectionReason: text('rejection_reason'),
+  reviewedBy: text('reviewed_by'),
+  reviewedAt: timestamp('reviewed_at'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Shipment Photos Table
+export const shipmentPhotos = pgTable('shipment_photos', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  shipmentId: text('shipment_id').notNull().references(() => shipments.id),
+
+  stage: varchar('stage', { length: 50 }).notNull(), // 'auction_yard', 'towing', 'us_port', 'vessel_loading', 'apapa_arrival', 'customs', 'released'
+  fileUrl: text('file_url').notNull(),
+  caption: text('caption'),
+
+  uploadedBy: text('uploaded_by').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Shipment Documents Table
+export const shipmentDocuments = pgTable('shipment_documents', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  shipmentId: text('shipment_id').notNull().references(() => shipments.id),
+
+  documentType: varchar('document_type', { length: 50 }).notNull(), // 'bill_of_lading', 'title', 'customs_declaration', 'import_duty_receipt', 'release_order'
+  fileUrl: text('file_url').notNull(),
+  fileName: varchar('file_name', { length: 255 }).notNull(),
+
+  uploadedBy: text('uploaded_by').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
 // Relations

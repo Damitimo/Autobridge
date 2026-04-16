@@ -78,7 +78,7 @@ export default function ShipmentsPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-dark mb-4"></div>
           <p className="text-gray-600">Loading shipments...</p>
         </div>
       </div>
@@ -120,7 +120,7 @@ export default function ShipmentsPage() {
                       </p>
                       
                       {item.bid.finalBidAmount && (
-                        <p className="text-lg font-bold text-blue-600 mb-2">
+                        <p className="text-lg font-bold text-brand-dark mb-2">
                           ${parseFloat(item.bid.finalBidAmount).toLocaleString()}
                         </p>
                       )}

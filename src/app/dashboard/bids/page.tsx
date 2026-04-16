@@ -145,7 +145,7 @@ export default function BidsPage() {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      pending: { color: 'bg-blue-100 text-blue-800 border-blue-300', icon: Clock, label: 'In Progress' },
+      pending: { color: 'bg-primary-100 text-primary-800 border-primary-300', icon: Clock, label: 'In Progress' },
       won: { color: 'bg-green-100 text-green-800 border-green-300', icon: CheckCircle, label: 'Won' },
       lost: { color: 'bg-red-100 text-red-800 border-red-300', icon: XCircle, label: 'Lost' },
       outbid: { color: 'bg-orange-100 text-orange-800 border-orange-300', icon: TrendingUp, label: 'Outbid' },
@@ -184,7 +184,7 @@ export default function BidsPage() {
           </div>
         </div>
         <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-dark"></div>
         </div>
       </div>
     );
@@ -223,7 +223,7 @@ export default function BidsPage() {
                 <p className="text-sm text-gray-600">Total Bids</p>
                 <p className="text-2xl font-bold">{bids.length}</p>
               </div>
-              <ShoppingCart className="h-8 w-8 text-blue-600" />
+              <ShoppingCart className="h-8 w-8 text-brand-dark" />
             </div>
           </CardContent>
         </Card>
@@ -237,7 +237,7 @@ export default function BidsPage() {
                   {bids.filter(b => b.bid.status === 'pending').length}
                 </p>
               </div>
-              <Clock className="h-8 w-8 text-blue-600" />
+              <Clock className="h-8 w-8 text-brand-dark" />
             </div>
           </CardContent>
         </Card>
@@ -265,7 +265,7 @@ export default function BidsPage() {
                   ${bids.reduce((sum, b) => sum + parseFloat(b.bid.maxBidAmount), 0).toLocaleString()}
                 </p>
               </div>
-              <DollarSign className="h-8 w-8 text-blue-600" />
+              <DollarSign className="h-8 w-8 text-brand-dark" />
             </div>
           </CardContent>
         </Card>
@@ -323,7 +323,7 @@ export default function BidsPage() {
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                       <div>
                         <p className="text-gray-600">Your Max Bid</p>
-                        <p className="font-semibold text-lg text-blue-600">
+                        <p className="font-semibold text-lg text-brand-dark">
                           ${parseFloat(item.bid.maxBidAmount).toLocaleString()}
                         </p>
                       </div>
@@ -452,7 +452,7 @@ export default function BidsPage() {
                       {item.bid.status === 'won' && item.bid.finalBidAmount && (
                         <Button 
                           size="sm" 
-                          className="bg-blue-600 hover:bg-blue-700"
+                          className="bg-brand-dark hover:bg-primary-700"
                           onClick={() => {
                             setSelectedShipment(item);
                             setShowShipmentModal(true);
@@ -565,7 +565,7 @@ export default function BidsPage() {
           </DialogHeader>
           {selectedShipment && (
             <div className="space-y-6">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="bg-primary-50 border border-primary-200 rounded-lg p-4">
                 <h3 className="font-bold text-lg mb-2">
                   {selectedShipment.vehicle.year} {selectedShipment.vehicle.make} {selectedShipment.vehicle.model}
                 </h3>

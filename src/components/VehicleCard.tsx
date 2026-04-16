@@ -88,7 +88,7 @@ export function VehicleCard({ vehicle }: VehicleCardProps) {
         <CardFooter className="border-t p-4 flex justify-between items-center">
           <div>
             <p className="text-xs text-gray-600">Current Bid</p>
-            <p className="text-xl font-bold text-blue-600">
+            <p className="text-xl font-bold text-brand-dark">
               {formatCurrency(currentBid, 'USD')}
             </p>
           </div>

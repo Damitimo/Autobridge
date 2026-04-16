@@ -8,16 +8,20 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel';
-import { 
-  Car, 
-  DollarSign, 
-  MapPin, 
-  Lock, 
-  Ship, 
+import {
+  Car,
+  DollarSign,
+  MapPin,
+  Lock,
+  Ship,
   TrendingUp,
   CheckCircle2,
   Clock
 } from 'lucide-react';
+import { Countdown } from '@/components/Countdown';
+
+// Launch date: 2 weeks from now
+const LAUNCH_DATE = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
 
 export default function HomePage() {
   // Demo cars for carousel (using free Unsplash images)
@@ -149,19 +153,25 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen">
+      {/* Launch Countdown */}
+      <Countdown
+        targetDate={LAUNCH_DATE}
+        title="Launching Soon"
+      />
+
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-20">
+      <section className="bg-gradient-to-r from-brand-dark to-primary-800 text-white py-20">
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="text-5xl font-bold mb-6">
               Import Cars from U.S. Auctions to Nigeria with Complete Transparency
             </h1>
-            <p className="text-xl mb-8 text-blue-100">
+            <p className="text-xl mb-8 text-primary-100">
               Access Copart & IAAI auctions, get AI-powered cost estimates, and track your vehicle from bid to delivery.
             </p>
             <div className="flex gap-4 justify-center flex-wrap">
               <Link href="/vehicles">
-                <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100 text-base px-8">
+                <Button size="lg" className="bg-white text-brand-dark hover:bg-gray-100 text-base px-8">
                   Browse Vehicles
                 </Button>
               </Link>
@@ -171,7 +181,7 @@ export default function HomePage() {
                 </Button>
               </Link>
             </div>
-            <p className="mt-4 text-sm text-blue-200">
+            <p className="mt-4 text-sm text-primary-200">
               Save 15-25% on importation costs · No auction business account needed
             </p>
           </div>
@@ -211,7 +221,7 @@ export default function HomePage() {
                         <div className="flex justify-between items-center">
                           <div>
                             <p className="text-xs text-gray-500">Current Bid</p>
-                            <p className="text-xl font-bold text-blue-600">{car.currentBid}</p>
+                            <p className="text-xl font-bold text-brand-dark">{car.currentBid}</p>
                           </div>
                           <Button size="sm">
                             View Details
@@ -243,10 +253,10 @@ export default function HomePage() {
             {features.map((feature, index) => {
               const Icon = feature.icon;
               return (
-                <Card key={index} className="border-2 hover:border-blue-500 transition-colors">
+                <Card key={index} className="border-2 hover:border-primary-500 transition-colors">
                   <CardHeader className="text-center">
-                    <div className="w-14 h-14 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                      <Icon className="w-7 h-7 text-blue-600" />
+                    <div className="w-14 h-14 bg-primary-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                      <Icon className="w-7 h-7 text-brand-dark" />
                     </div>
                     <CardTitle className="text-lg">{feature.title}</CardTitle>
                   </CardHeader>
@@ -271,7 +281,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {howItWorks.map((item, index) => (
               <div key={index} className="text-center">
-                <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
+                <div className="w-16 h-16 bg-brand-dark text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-4">
                   {item.step}
                 </div>
                 <h3 className="font-bold text-lg mb-2">{item.title}</h3>
@@ -317,7 +327,7 @@ export default function HomePage() {
                 </div>
                 <div className="flex justify-between pt-2 border-t border-gray-300 font-semibold">
                   <span className="text-gray-700">Total Landed Cost</span>
-                  <span className="text-blue-600">₦15,500,000</span>
+                  <span className="text-brand-dark">₦15,500,000</span>
                 </div>
               </div>
             </div>
@@ -347,7 +357,7 @@ export default function HomePage() {
                 <CardContent className="pt-6">
                   <p className="text-gray-700 mb-4">"{testimonial.text}"</p>
                   <div className="flex items-center">
-                    <div className="w-10 h-10 bg-blue-600 rounded-full mr-3 flex items-center justify-center text-white font-bold">
+                    <div className="w-10 h-10 bg-brand-dark rounded-full mr-3 flex items-center justify-center text-white font-bold">
                       {testimonial.name[0]}
                     </div>
                     <div>
@@ -442,14 +452,14 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-16 bg-blue-600 text-white">
+      <section className="py-16 bg-brand-dark text-white">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold mb-4">Ready to Start Importing?</h2>
-          <p className="text-xl mb-8 text-blue-100">
+          <p className="text-xl mb-8 text-primary-100">
             Create your free account and browse thousands of vehicles today
           </p>
           <Link href="/auth/register">
-            <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100 text-base px-8">
+            <Button size="lg" className="bg-white text-brand-dark hover:bg-gray-100 text-base px-8">
               Get Started Now
             </Button>
           </Link>

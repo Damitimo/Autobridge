@@ -59,8 +59,8 @@ export default function HelpPage() {
           <div className="grid md:grid-cols-3 gap-4 mb-12">
             <Card className="text-center">
               <CardHeader>
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <MessageCircle className="w-6 h-6 text-blue-600" />
+                <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <MessageCircle className="w-6 h-6 text-brand-dark" />
                 </div>
                 <CardTitle className="text-lg">Live Chat</CardTitle>
               </CardHeader>
@@ -72,8 +72,8 @@ export default function HelpPage() {
 
             <Card className="text-center">
               <CardHeader>
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <Mail className="w-6 h-6 text-blue-600" />
+                <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <Mail className="w-6 h-6 text-brand-dark" />
                 </div>
                 <CardTitle className="text-lg">Email Support</CardTitle>
               </CardHeader>
@@ -87,8 +87,8 @@ export default function HelpPage() {
 
             <Card className="text-center">
               <CardHeader>
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <Phone className="w-6 h-6 text-blue-600" />
+                <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <Phone className="w-6 h-6 text-brand-dark" />
                 </div>
                 <CardTitle className="text-lg">Phone</CardTitle>
               </CardHeader>
@@ -103,7 +103,7 @@ export default function HelpPage() {
 
           {/* FAQ Section */}
           <h2 className="text-2xl font-bold mb-6 flex items-center">
-            <HelpCircle className="w-6 h-6 mr-2 text-blue-600" />
+            <HelpCircle className="w-6 h-6 mr-2 text-brand-dark" />
             Frequently Asked Questions
           </h2>
           
@@ -120,7 +120,7 @@ export default function HelpPage() {
             ))}
           </div>
 
-          <div className="mt-12 bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+          <div className="mt-12 bg-primary-50 border border-primary-200 rounded-lg p-6 text-center">
             <h3 className="text-xl font-bold mb-2">Can't find what you're looking for?</h3>
             <p className="text-gray-600 mb-4">
               Our support team is here to help you with any questions

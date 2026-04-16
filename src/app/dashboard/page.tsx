@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ interface Shipment {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [user, setUser] = useState<User | null>(null);
   const [stats, setStats] = useState({
     totalBids: 0,
@@ -40,16 +42,36 @@ export default function DashboardPage() {
   const [recentShipments, setRecentShipments] = useState<Shipment[]>([]);
 
   useEffect(() => {
+    // First check localStorage
     const storedUser = localStorage.getItem('user');
-    if (!storedUser) {
-      router.push('/auth/login');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+      fetchDashboardData();
       return;
     }
-    
-    setUser(JSON.parse(storedUser));
-    // In production, fetch real stats from API
-    fetchDashboardData();
-  }, []);
+
+    // Then check NextAuth session
+    if (status === 'authenticated' && session?.user) {
+      const sessionUser = {
+        id: (session.user as any).id || '',
+        firstName: session.user.name?.split(' ')[0] || '',
+        lastName: session.user.name?.split(' ').slice(1).join(' ') || '',
+        email: session.user.email || '',
+        kycStatus: 'pending',
+        referralCode: 'REF' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+      };
+      setUser(sessionUser);
+      // Store in localStorage for future use
+      localStorage.setItem('user', JSON.stringify(sessionUser));
+      fetchDashboardData();
+      return;
+    }
+
+    // If not authenticated and finished loading, redirect to login
+    if (status === 'unauthenticated') {
+      router.push('/auth/login');
+    }
+  }, [session, status, router]);
 
   const fetchDashboardData = async () => {
     // TODO: Fetch real data from API
@@ -65,7 +87,7 @@ export default function DashboardPage() {
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-dark"></div>
       </div>
     );
   }
@@ -132,7 +154,7 @@ export default function DashboardPage() {
               <CardTitle className="text-sm font-medium text-gray-600">Active Shipments</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-blue-600">{stats.activeShipments}</p>
+              <p className="text-3xl font-bold text-brand-dark">{stats.activeShipments}</p>
             </CardContent>
           </Card>
 
@@ -152,7 +174,7 @@ export default function DashboardPage() {
             <Card className="hover:shadow-lg transition-shadow cursor-pointer">
               <CardContent className="p-6 text-center">
                 <div className="flex justify-center mb-3">
-                  <Car className="h-12 w-12 text-blue-600" />
+                  <Car className="h-12 w-12 text-brand-dark" />
                 </div>
                 <h3 className="font-bold mb-2">Browse Vehicles</h3>
                 <p className="text-sm text-gray-600">Find your next import</p>
@@ -225,7 +247,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Referral Section */}
-        <Card className="mt-8 bg-gradient-to-r from-blue-600 to-blue-800 text-white">
+        <Card className="mt-8 bg-gradient-to-r from-brand-dark to-primary-800 text-white">
           <CardContent className="p-6">
             <div className="flex items-center gap-2 mb-2">
               <Gift className="h-6 w-6" />
@@ -235,7 +257,7 @@ export default function DashboardPage() {
             <div className="bg-white text-gray-900 px-4 py-3 rounded-lg font-mono font-bold text-lg inline-block">
               {user.referralCode}
             </div>
-            <Button variant="outline" className="ml-4 border-white text-white hover:bg-blue-700">
+            <Button variant="outline" className="ml-4 border-white text-white hover:bg-primary-700">
               Copy Code
             </Button>
           </CardContent>

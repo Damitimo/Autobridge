@@ -150,15 +150,15 @@ export default function SignupFeePage() {
             </Alert>
           )}
 
-          <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
+          <div className="bg-primary-50 border-2 border-primary-200 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-blue-900">Signup Fee</h3>
+              <h3 className="text-lg font-semibold text-primary-900">Signup Fee</h3>
               <div className="text-right">
-                <p className="text-3xl font-bold text-blue-600">₦100,000</p>
-                <p className="text-sm text-blue-600">≈ $64.52 USD</p>
+                <p className="text-3xl font-bold text-brand-dark">₦100,000</p>
+                <p className="text-sm text-brand-dark">≈ $64.52 USD</p>
               </div>
             </div>
-            <p className="text-sm text-blue-800">
+            <p className="text-sm text-primary-800">
               This is a one-time, non-refundable registration fee to activate your AutoBridge account.
             </p>
           </div>
@@ -193,26 +193,26 @@ export default function SignupFeePage() {
             </ul>
           </div>
 
-          <div className="bg-blue-50 border-2 border-blue-200 p-4 rounded-lg">
-            <h4 className="font-semibold mb-3 text-blue-900">Have a Coupon Code?</h4>
+          <div className="bg-primary-50 border-2 border-primary-200 p-4 rounded-lg">
+            <h4 className="font-semibold mb-3 text-primary-900">Have a Coupon Code?</h4>
             <div className="flex gap-2">
               <input
                 type="text"
                 placeholder="Enter coupon code"
                 value={couponCode}
                 onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                className="flex-1 px-4 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-4 py-2 border border-primary-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
               <Button 
                 onClick={handleApplyCoupon}
                 disabled={applyingCoupon || !couponCode.trim()}
                 variant="outline"
-                className="border-blue-300"
+                className="border-primary-300"
               >
                 {applyingCoupon ? 'Applying...' : 'Apply'}
               </Button>
             </div>
-            <p className="text-xs text-blue-700 mt-2 font-medium">
+            <p className="text-xs text-primary-700 mt-2 font-medium">
               COUPON: NOKINGS
             </p>
           </div>

@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { 
-  Wallet, 
-  ShoppingCart, 
-  Ship, 
-  LayoutDashboard, 
-  User, 
-  Bell, 
+import {
+  Wallet,
+  ShoppingCart,
+  Ship,
+  LayoutDashboard,
+  User,
+  Bell,
   LogOut,
   Menu,
   X
@@ -57,47 +59,68 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { data: session, status } = useSession();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     checkAuth();
-  }, []);
+  }, [session, status]);
 
   const checkAuth = async () => {
+    // Wait for session to load
+    if (status === 'loading') return;
+
     try {
       const token = localStorage.getItem('token');
-      
-      if (!token) {
-        router.push('/auth/login?redirect=' + pathname);
-        return;
-      }
 
-      // Verify token with API
-      const response = await fetch('/api/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      // Check localStorage token first
+      if (token) {
+        const response = await fetch('/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
 
-      if (!response.ok) {
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setUser(data.user);
+            setLoading(false);
+            return;
+          }
+        }
+        // Token invalid, clear it
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        router.push('/auth/login?redirect=' + pathname);
+      }
+
+      // Check NextAuth session
+      if (status === 'authenticated' && session?.user) {
+        const sessionUser = {
+          id: (session.user as any).id || '',
+          firstName: session.user.name?.split(' ')[0] || '',
+          lastName: session.user.name?.split(' ').slice(1).join(' ') || '',
+          email: session.user.email || '',
+          image: session.user.image,
+        };
+        setUser(sessionUser);
+        setLoading(false);
         return;
       }
 
-      const data = await response.json();
-      if (data.success) {
-        setUser(data.user);
-      } else {
+      // Not authenticated
+      if (status === 'unauthenticated' && !token) {
         router.push('/auth/login?redirect=' + pathname);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      router.push('/auth/login?redirect=' + pathname);
+      if (status === 'unauthenticated') {
+        router.push('/auth/login?redirect=' + pathname);
+      }
     } finally {
+      // Only set loading false if we've finished processing
       setLoading(false);
     }
   };
@@ -105,14 +128,14 @@ export default function DashboardLayout({
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    router.push('/');
+    signOut({ callbackUrl: '/' });
   };
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-dark mb-4"></div>
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
@@ -145,7 +168,13 @@ export default function DashboardLayout({
           {/* Logo */}
           <div className="p-6 border-b">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="text-2xl font-bold text-blue-600">AutoBridge</div>
+              <Image
+                src="/logo-wide.svg"
+                alt="AutoBridge"
+                width={160}
+                height={45}
+                className="h-10 w-auto"
+              />
             </Link>
           </div>
 
@@ -153,9 +182,19 @@ export default function DashboardLayout({
           {user && (
             <div className="p-4 border-b">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
-                  {user.firstName?.[0]}{user.lastName?.[0]}
-                </div>
+                {user.image ? (
+                  <Image
+                    src={user.image}
+                    alt="Profile"
+                    width={40}
+                    height={40}
+                    className="rounded-full"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-brand-dark flex items-center justify-center text-white font-semibold">
+                    {user.firstName?.[0]}{user.lastName?.[0]}
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">
                     {user.firstName} {user.lastName}
@@ -180,7 +219,7 @@ export default function DashboardLayout({
                   className={cn(
                     "flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors",
                     isActive
-                      ? "bg-blue-50 text-blue-600 font-medium"
+                      ? "bg-accent-50 text-brand-dark font-medium"
                       : "text-gray-700 hover:bg-gray-100"
                   )}
                 >

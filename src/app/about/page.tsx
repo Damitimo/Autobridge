@@ -59,8 +59,8 @@ export default function AboutPage() {
                 return (
                   <Card key={index}>
                     <CardHeader>
-                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                        <Icon className="w-6 h-6 text-blue-600" />
+                      <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center mb-4">
+                        <Icon className="w-6 h-6 text-brand-dark" />
                       </div>
                       <CardTitle>{value.title}</CardTitle>
                     </CardHeader>
@@ -77,23 +77,23 @@ export default function AboutPage() {
                 <h2 className="text-2xl font-bold mb-4">Why Choose Us?</h2>
                 <ul className="space-y-3 text-gray-600">
                   <li className="flex items-start">
-                    <span className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-sm font-bold mr-3 mt-0.5">✓</span>
+                    <span className="w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center text-brand-dark text-sm font-bold mr-3 mt-0.5">✓</span>
                     <span><strong>Licensed U.S. Broker:</strong> We're a fully licensed auto auction broker with accounts at Copart and IAAI</span>
                   </li>
                   <li className="flex items-start">
-                    <span className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-sm font-bold mr-3 mt-0.5">✓</span>
+                    <span className="w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center text-brand-dark text-sm font-bold mr-3 mt-0.5">✓</span>
                     <span><strong>No Hidden Fees:</strong> Our AI calculator shows every single cost before you bid</span>
                   </li>
                   <li className="flex items-start">
-                    <span className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-sm font-bold mr-3 mt-0.5">✓</span>
+                    <span className="w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center text-brand-dark text-sm font-bold mr-3 mt-0.5">✓</span>
                     <span><strong>Real-Time Tracking:</strong> GPS tracking and live updates from auction to your doorstep</span>
                   </li>
                   <li className="flex items-start">
-                    <span className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-sm font-bold mr-3 mt-0.5">✓</span>
+                    <span className="w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center text-brand-dark text-sm font-bold mr-3 mt-0.5">✓</span>
                     <span><strong>Local Support:</strong> Nigerian team handles customs clearance and final delivery</span>
                   </li>
                   <li className="flex items-start">
-                    <span className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-sm font-bold mr-3 mt-0.5">✓</span>
+                    <span className="w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center text-brand-dark text-sm font-bold mr-3 mt-0.5">✓</span>
                     <span><strong>Pay in Naira:</strong> No need for dollars. Pay with local bank transfer or card</span>
                   </li>
                 </ul>

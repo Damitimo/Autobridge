@@ -78,7 +78,7 @@ export default function ShipmentDetailPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-dark mb-4"></div>
           <p className="text-gray-600">Loading shipment details...</p>
         </div>
       </div>
@@ -133,7 +133,7 @@ export default function ShipmentDetailPage() {
                 </h1>
                 <p className="text-sm text-gray-600">VIN: {shipment.vehicle.vin}</p>
                 {shipment.bid.finalBidAmount && (
-                  <p className="text-lg font-semibold text-blue-600 mt-2">
+                  <p className="text-lg font-semibold text-brand-dark mt-2">
                     Purchase Price: ${parseFloat(shipment.bid.finalBidAmount).toLocaleString()}
                   </p>
                 )}
@@ -159,7 +159,7 @@ export default function ShipmentDetailPage() {
                       className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${
                         isCompleted
                           ? isCurrent
-                            ? 'bg-blue-600 text-white'
+                            ? 'bg-brand-dark text-white'
                             : 'bg-green-100'
                           : 'bg-gray-200'
                       }`}
@@ -175,7 +175,7 @@ export default function ShipmentDetailPage() {
                         {step.label}
                       </p>
                       {isCurrent && (
-                        <p className="text-sm text-blue-600">Current Status</p>
+                        <p className="text-sm text-brand-dark">Current Status</p>
                       )}
                     </div>
                   </div>
@@ -240,10 +240,10 @@ export default function ShipmentDetailPage() {
         </Card>
 
         {/* Support */}
-        <Card className="mt-6 bg-blue-50 border-blue-200">
+        <Card className="mt-6 bg-primary-50 border-primary-200">
           <CardContent className="p-6 text-center">
-            <p className="font-semibold text-blue-900 mb-2">Need Help?</p>
-            <p className="text-sm text-blue-800 mb-4">
+            <p className="font-semibold text-primary-900 mb-2">Need Help?</p>
+            <p className="text-sm text-primary-800 mb-4">
               Our support team is available 24/7 to assist you
             </p>
             <div className="flex gap-4 justify-center">

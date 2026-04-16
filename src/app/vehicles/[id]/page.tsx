@@ -524,7 +524,7 @@ export default function VehicleDetailPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-brand-dark mb-4"></div>
           <p className="text-gray-600">Loading vehicle details...</p>
         </div>
       </div>
@@ -589,7 +589,7 @@ export default function VehicleDetailPage() {
                         key={index}
                         onClick={() => setSelectedImage(index)}
                         className={`relative h-20 border-2 rounded overflow-hidden transition-all ${
-                          selectedImage === index ? 'border-blue-600 ring-2 ring-blue-300' : 'border-gray-300 hover:border-blue-400'
+                          selectedImage === index ? 'border-brand-dark ring-2 ring-primary-300' : 'border-gray-300 hover:border-primary-400'
                         }`}
                       >
                         <img
@@ -689,11 +689,11 @@ export default function VehicleDetailPage() {
           <div className="space-y-6">
             {/* Cost Calculator - Only show if user hasn't bid yet */}
             {!hasExistingBid && (
-            <Card className="sticky top-24 border-2 border-blue-500">
-              <CardHeader className="bg-blue-50">
+            <Card className="sticky top-24 border-2 border-primary-500">
+              <CardHeader className="bg-primary-50">
                 <div className="mb-4">
                   <p className="text-sm text-gray-600">Current Bid</p>
-                  <p className="text-3xl font-bold text-blue-600">
+                  <p className="text-3xl font-bold text-brand-dark">
                     {formatCurrency(parseFloat(vehicle.currentBid || '0'), 'USD')}
                   </p>
                 </div>
@@ -727,14 +727,14 @@ export default function VehicleDetailPage() {
 
                 {estimating ? (
                   <div className="text-center py-4">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-dark"></div>
                     <p className="mt-2 text-sm text-gray-600">Calculating...</p>
                   </div>
                 ) : costEstimate ? (
                   <div>
-                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-lg mb-4 border-2 border-blue-200">
+                    <div className="bg-gradient-to-br from-primary-50 to-primary-100 p-5 rounded-lg mb-4 border-2 border-primary-200">
                       <p className="text-sm text-gray-600 mb-1">Total Landed Cost in Nigeria</p>
-                      <p className="text-3xl font-bold text-blue-600">
+                      <p className="text-3xl font-bold text-brand-dark">
                         {formatCurrency(costEstimate.totalNGN, 'NGN')}
                       </p>
                       <p className="text-sm text-gray-600 mt-1">
@@ -809,7 +809,7 @@ export default function VehicleDetailPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="w-full border-blue-300 text-blue-600 hover:bg-blue-50"
+                                className="w-full border-primary-300 text-brand-dark hover:bg-primary-50"
                                 onClick={() => setShowFundModal(true)}
                               >
                                 Fund Wallet
@@ -879,8 +879,8 @@ export default function VehicleDetailPage() {
             </div>
 
             {walletBalance && bidAmount && (
-              <div className="bg-blue-50 p-3 rounded-lg">
-                <p className="text-sm text-blue-900">
+              <div className="bg-primary-50 p-3 rounded-lg">
+                <p className="text-sm text-primary-900">
                   <strong>Required deposit:</strong> ${(parseFloat(bidAmount) * 0.10).toFixed(2)}
                   <br />
                   <strong>Current balance:</strong> ${walletBalance.available.toFixed(2)}
@@ -890,8 +890,8 @@ export default function VehicleDetailPage() {
               </div>
             )}
 
-            <div className="bg-blue-50 p-4 rounded-lg space-y-2">
-              <p className="text-sm text-blue-900 font-medium">
+            <div className="bg-primary-50 p-4 rounded-lg space-y-2">
+              <p className="text-sm text-primary-900 font-medium">
                 {fundCurrency === 'NGN' ? (
                   <>💳 You will be redirected to Paystack to complete payment securely</>
                 ) : (
@@ -899,9 +899,9 @@ export default function VehicleDetailPage() {
                 )}
               </p>
               {fundCurrency === 'NGN' && (
-                <div className="bg-white p-3 rounded border border-blue-200">
-                  <p className="text-xs font-semibold text-blue-900 mb-1">Test Card (Demo):</p>
-                  <p className="text-xs text-blue-800 font-mono">
+                <div className="bg-white p-3 rounded border border-primary-200">
+                  <p className="text-xs font-semibold text-primary-900 mb-1">Test Card (Demo):</p>
+                  <p className="text-xs text-primary-800 font-mono">
                     Card: 4084 0840 8408 4081<br />
                     Expiry: 12/30 | CVV: 408<br />
                     PIN: 0000 | OTP: 123456

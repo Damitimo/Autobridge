@@ -70,11 +70,11 @@ export default function ShippingPage() {
               return (
                 <Card key={index}>
                   <CardHeader>
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                      <Icon className="w-6 h-6 text-blue-600" />
+                    <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center mb-4">
+                      <Icon className="w-6 h-6 text-brand-dark" />
                     </div>
                     <CardTitle className="text-2xl">{option.title}</CardTitle>
-                    <CardDescription className="text-lg font-semibold text-blue-600 mt-2">
+                    <CardDescription className="text-lg font-semibold text-brand-dark mt-2">
                       {option.price}
                     </CardDescription>
                     <CardDescription className="text-sm">
@@ -86,7 +86,7 @@ export default function ShippingPage() {
                     <ul className="space-y-2">
                       {option.features.map((feature, idx) => (
                         <li key={idx} className="flex items-center text-sm">
-                          <span className="w-1.5 h-1.5 bg-blue-600 rounded-full mr-2"></span>
+                          <span className="w-1.5 h-1.5 bg-brand-dark rounded-full mr-2"></span>
                           {feature}
                         </li>
                       ))}
@@ -104,8 +104,8 @@ export default function ShippingPage() {
               return (
                 <Card key={index}>
                   <CardHeader className="text-center">
-                    <div className="w-14 h-14 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                      <Icon className="w-7 h-7 text-blue-600" />
+                    <div className="w-14 h-14 bg-primary-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                      <Icon className="w-7 h-7 text-brand-dark" />
                     </div>
                     <CardTitle className="text-lg">{item.title}</CardTitle>
                   </CardHeader>
@@ -117,7 +117,7 @@ export default function ShippingPage() {
             })}
           </div>
 
-          <div className="mt-12 bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <div className="mt-12 bg-primary-50 border border-primary-200 rounded-lg p-6">
             <h3 className="text-xl font-bold mb-2">Real-Time Tracking</h3>
             <p className="text-gray-600">
               Track your vehicle every step of the way with GPS tracking, SMS updates, and real-time status in your dashboard.

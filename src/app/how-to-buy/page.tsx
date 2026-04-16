@@ -56,7 +56,7 @@ export default function HowToBuyPage() {
               <Card key={index}>
                 <CardHeader>
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center text-xl font-bold flex-shrink-0">
+                    <div className="w-12 h-12 bg-brand-dark text-white rounded-full flex items-center justify-center text-xl font-bold flex-shrink-0">
                       {item.step}
                     </div>
                     <div>
@@ -71,7 +71,7 @@ export default function HowToBuyPage() {
             ))}
           </div>
 
-          <div className="bg-blue-600 text-white rounded-lg p-8 text-center">
+          <div className="bg-brand-dark text-white rounded-lg p-8 text-center">
             <h2 className="text-2xl font-bold mb-4">Ready to Get Started?</h2>
             <p className="mb-6">Create your free account and start browsing vehicles today</p>
             <Link href="/auth/register">
