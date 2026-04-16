@@ -49,67 +49,49 @@ export default function HomePage() {
     );
   }
 
+  const timeUnits = [
+    { value: timeLeft.days, label: 'Days' },
+    { value: timeLeft.hours, label: 'Hours' },
+    { value: timeLeft.minutes, label: 'Mins' },
+    { value: timeLeft.seconds, label: 'Secs' },
+  ];
+
   return (
     <div className="min-h-screen bg-brand-dark flex flex-col items-center justify-center p-4">
       {/* Logo */}
-      <div className="mb-16">
+      <div className="mb-8 md:mb-16">
         <Image
           src="/logo-wide.svg"
           alt="AutoBridge"
           width={400}
           height={120}
-          className="h-20 md:h-28 w-auto"
+          className="h-12 sm:h-16 md:h-28 w-auto"
           priority
         />
       </div>
 
-      {/* Countdown Timer */}
-      <div className="flex items-center gap-3 md:gap-8">
-        {/* Days */}
-        <div className="text-center">
-          <div className="bg-brand-gold text-brand-dark rounded-2xl px-6 md:px-12 py-6 md:py-10 min-w-[100px] md:min-w-[160px]">
-            <span className="text-5xl md:text-8xl font-bold font-mono">
-              {String(timeLeft.days).padStart(2, '0')}
-            </span>
+      {/* Countdown Timer - Grid on mobile, flex on desktop */}
+      <div className="grid grid-cols-4 gap-2 sm:gap-3 md:flex md:items-center md:gap-6 lg:gap-8">
+        {timeUnits.map((unit, index) => (
+          <div key={unit.label} className="contents md:contents">
+            {/* Timer Box */}
+            <div className="text-center">
+              <div className="bg-brand-gold text-brand-dark rounded-lg sm:rounded-xl md:rounded-2xl px-3 sm:px-4 md:px-10 lg:px-12 py-3 sm:py-4 md:py-8 lg:py-10 min-w-[70px] sm:min-w-[80px] md:min-w-[140px] lg:min-w-[160px]">
+                <span className="text-2xl sm:text-3xl md:text-6xl lg:text-8xl font-bold font-mono">
+                  {String(unit.value).padStart(2, '0')}
+                </span>
+              </div>
+              <span className="text-xs sm:text-sm md:text-lg lg:text-xl font-semibold mt-2 md:mt-4 block text-white uppercase tracking-wider md:tracking-widest">
+                {unit.label}
+              </span>
+            </div>
+
+            {/* Colon separator - hidden on mobile, visible on md+ */}
+            {index < 3 && (
+              <span className="hidden md:block text-5xl lg:text-7xl font-bold text-brand-gold">:</span>
+            )}
           </div>
-          <span className="text-base md:text-xl font-semibold mt-4 block text-white uppercase tracking-widest">Days</span>
-        </div>
-
-        <span className="text-4xl md:text-7xl font-bold text-brand-gold self-start mt-6 md:mt-10">:</span>
-
-        {/* Hours */}
-        <div className="text-center">
-          <div className="bg-brand-gold text-brand-dark rounded-2xl px-6 md:px-12 py-6 md:py-10 min-w-[100px] md:min-w-[160px]">
-            <span className="text-5xl md:text-8xl font-bold font-mono">
-              {String(timeLeft.hours).padStart(2, '0')}
-            </span>
-          </div>
-          <span className="text-base md:text-xl font-semibold mt-4 block text-white uppercase tracking-widest">Hours</span>
-        </div>
-
-        <span className="text-4xl md:text-7xl font-bold text-brand-gold self-start mt-6 md:mt-10">:</span>
-
-        {/* Minutes */}
-        <div className="text-center">
-          <div className="bg-brand-gold text-brand-dark rounded-2xl px-6 md:px-12 py-6 md:py-10 min-w-[100px] md:min-w-[160px]">
-            <span className="text-5xl md:text-8xl font-bold font-mono">
-              {String(timeLeft.minutes).padStart(2, '0')}
-            </span>
-          </div>
-          <span className="text-base md:text-xl font-semibold mt-4 block text-white uppercase tracking-widest">Mins</span>
-        </div>
-
-        <span className="text-4xl md:text-7xl font-bold text-brand-gold self-start mt-6 md:mt-10">:</span>
-
-        {/* Seconds */}
-        <div className="text-center">
-          <div className="bg-brand-gold text-brand-dark rounded-2xl px-6 md:px-12 py-6 md:py-10 min-w-[100px] md:min-w-[160px]">
-            <span className="text-5xl md:text-8xl font-bold font-mono">
-              {String(timeLeft.seconds).padStart(2, '0')}
-            </span>
-          </div>
-          <span className="text-base md:text-xl font-semibold mt-4 block text-white uppercase tracking-widest">Secs</span>
-        </div>
+        ))}
       </div>
     </div>
   );
