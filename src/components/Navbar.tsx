@@ -66,7 +66,6 @@ export function Navbar() {
   if (isAuthPage) return null;
 
   const publicNavItems = [
-    { name: 'Browse Vehicles', href: '/vehicles' },
     { name: 'How to Buy', href: '/how-to-buy' },
     { name: 'Shipping', href: '/shipping' },
     { name: 'About Us', href: '/about' },
@@ -74,8 +73,8 @@ export function Navbar() {
   ];
 
   const loggedInNavItems = [
-    { name: 'Browse Vehicles', href: '/vehicles' },
     { name: 'Dashboard', href: '/dashboard' },
+    { name: 'How to Buy', href: '/how-to-buy' },
   ];
 
   const navItems = isLoggedIn ? loggedInNavItems : publicNavItems;
