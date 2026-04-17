@@ -11,13 +11,15 @@ interface TimeLeft {
   seconds: number;
 }
 
-// Launch date: 2 weeks from now
-const LAUNCH_DATE = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+// Launch date: April 30th, 2026 (13 days remaining)
+const LAUNCH_DATE = new Date('2026-04-30T00:00:00');
 
 export default function HomePage() {
   const [timeLeft, setTimeLeft] = useState<TimeLeft>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [mounted, setMounted] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
+  const [email, setEmail] = useState('');
+  const [submitted, setSubmitted] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -57,6 +59,14 @@ export default function HomePage() {
     router.push('/home');
   };
 
+  const handleEmailSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email) {
+      // TODO: Send to backend/email service
+      setSubmitted(true);
+    }
+  };
+
   if (!mounted) {
     return (
       <div className="min-h-screen bg-brand-dark flex items-center justify-center">
@@ -83,33 +93,33 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-brand-dark flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-brand-dark flex flex-col items-center justify-start pt-[15vh] sm:pt-[18vh] md:justify-center md:pt-0 px-3 py-8 md:p-4">
       {/* Logo */}
-      <div className="mb-8 md:mb-16">
+      <div className="mb-6 md:mb-16">
         <Image
           src="/logo-wide.svg"
           alt="AutoBridge"
           width={400}
           height={120}
-          className="h-12 sm:h-16 md:h-28 w-auto"
+          className="h-14 sm:h-16 md:h-28 w-auto"
           priority
         />
       </div>
 
       {/* Countdown Timer - Grid on mobile, flex on desktop */}
-      <div className="grid grid-cols-4 gap-2 sm:gap-3 md:flex md:items-center md:gap-6 lg:gap-8">
+      <div className="grid grid-cols-4 gap-1.5 sm:gap-3 md:flex md:items-center md:gap-6 lg:gap-8 w-full max-w-[360px] sm:max-w-none sm:w-auto">
         {timeUnits.map((unit, index) => (
           <div key={unit.label} className="contents md:contents">
             {/* Timer Box */}
             <div className="text-center">
-              <div className="bg-brand-gold text-brand-dark rounded-lg sm:rounded-xl md:rounded-2xl px-3 sm:px-4 md:px-10 lg:px-12 py-3 sm:py-4 md:py-8 lg:py-10 min-w-[70px] sm:min-w-[80px] md:min-w-[140px] lg:min-w-[160px]">
-                <span className="text-2xl sm:text-3xl md:text-6xl lg:text-8xl font-bold font-mono">
+              <div className="bg-brand-gold text-brand-dark rounded-xl md:rounded-2xl px-2 sm:px-4 md:px-10 lg:px-12 py-4 sm:py-4 md:py-8 lg:py-10 min-w-0 sm:min-w-[80px] md:min-w-[140px] lg:min-w-[160px]">
+                <span className="text-3xl sm:text-3xl md:text-6xl lg:text-8xl font-bold font-mono">
                   {String(unit.value).padStart(2, '0')}
                 </span>
               </div>
               <span
                 onClick={unit.isSecret ? handleSecretClick : undefined}
-                className={`text-xs sm:text-sm md:text-lg lg:text-xl font-semibold mt-2 md:mt-4 block text-white uppercase tracking-wider md:tracking-widest ${unit.isSecret ? 'cursor-pointer select-none' : ''}`}
+                className={`text-[10px] sm:text-sm md:text-lg lg:text-xl font-semibold mt-1.5 md:mt-4 block text-white uppercase tracking-wide md:tracking-widest ${unit.isSecret ? 'cursor-pointer select-none' : ''}`}
               >
                 {unit.label}
               </span>
@@ -121,6 +131,35 @@ export default function HomePage() {
             )}
           </div>
         ))}
+      </div>
+
+      {/* Be the first to know */}
+      <div className="mt-8 md:mt-16 text-center w-full px-2">
+        <h2 className="text-white text-base md:text-2xl font-semibold mb-3 md:mb-4">
+          Be the first to know
+        </h2>
+        {submitted ? (
+          <p className="text-brand-gold text-sm md:text-base">
+            Thanks! We&apos;ll notify you when we launch.
+          </p>
+        ) : (
+          <form onSubmit={handleEmailSubmit} className="flex flex-col sm:flex-row gap-2 sm:gap-3 max-w-md mx-auto">
+            <input
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="flex-1 px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg bg-white/10 border border-white/20 text-white text-sm sm:text-base placeholder-white/50 focus:outline-none focus:border-brand-gold focus:ring-1 focus:ring-brand-gold"
+            />
+            <button
+              type="submit"
+              className="px-5 py-2.5 sm:px-6 sm:py-3 bg-brand-gold text-brand-dark text-sm sm:text-base font-semibold rounded-lg hover:bg-yellow-400 transition-colors"
+            >
+              Notify Me
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
