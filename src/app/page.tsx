@@ -134,7 +134,7 @@ export default function HomePage() {
       </div>
 
       {/* Be the first to know */}
-      <div className="mt-8 md:mt-16 text-center w-full px-2">
+      <div className="mt-8 md:mt-12 text-center w-full max-w-[360px] sm:max-w-xl md:max-w-2xl lg:max-w-3xl mx-auto px-4 py-6 border border-white/20 rounded-xl">
         <h2 className="text-white text-base md:text-2xl font-semibold mb-3 md:mb-4">
           Be the first to know
         </h2>
