@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 interface TimeLeft {
   days: number;
@@ -16,9 +17,18 @@ const LAUNCH_DATE = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
 export default function HomePage() {
   const [timeLeft, setTimeLeft] = useState<TimeLeft>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [mounted, setMounted] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
+
+    // Check if site is unlocked
+    const isUnlocked = localStorage.getItem('siteUnlocked') === 'true';
+    if (isUnlocked) {
+      setUnlocked(true);
+      return;
+    }
 
     const calculateTimeLeft = () => {
       const difference = LAUNCH_DATE.getTime() - new Date().getTime();
@@ -41,6 +51,12 @@ export default function HomePage() {
     return () => clearInterval(timer);
   }, []);
 
+  const handleSecretClick = () => {
+    localStorage.setItem('siteUnlocked', 'true');
+    setUnlocked(true);
+    router.push('/home');
+  };
+
   if (!mounted) {
     return (
       <div className="min-h-screen bg-brand-dark flex items-center justify-center">
@@ -49,11 +65,21 @@ export default function HomePage() {
     );
   }
 
+  // If unlocked, redirect to home
+  if (unlocked) {
+    router.push('/home');
+    return (
+      <div className="min-h-screen bg-brand-dark flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
+      </div>
+    );
+  }
+
   const timeUnits = [
-    { value: timeLeft.days, label: 'Days' },
-    { value: timeLeft.hours, label: 'Hours' },
-    { value: timeLeft.minutes, label: 'Mins' },
-    { value: timeLeft.seconds, label: 'Secs' },
+    { value: timeLeft.days, label: 'Days', isSecret: false },
+    { value: timeLeft.hours, label: 'Hours', isSecret: false },
+    { value: timeLeft.minutes, label: 'Mins', isSecret: false },
+    { value: timeLeft.seconds, label: 'Secs', isSecret: true },
   ];
 
   return (
@@ -81,7 +107,10 @@ export default function HomePage() {
                   {String(unit.value).padStart(2, '0')}
                 </span>
               </div>
-              <span className="text-xs sm:text-sm md:text-lg lg:text-xl font-semibold mt-2 md:mt-4 block text-white uppercase tracking-wider md:tracking-widest">
+              <span
+                onClick={unit.isSecret ? handleSecretClick : undefined}
+                className={`text-xs sm:text-sm md:text-lg lg:text-xl font-semibold mt-2 md:mt-4 block text-white uppercase tracking-wider md:tracking-widest ${unit.isSecret ? 'cursor-pointer select-none' : ''}`}
+              >
                 {unit.label}
               </span>
             </div>
