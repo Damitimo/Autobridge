@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { bids, vehicles, users } from '@/db/schema';
+import { bids, vehicles, users, bidRequests } from '@/db/schema';
 import { getUserFromToken } from '@/lib/auth';
 import { checkBidEligibility, lockDepositForBid } from '@/lib/wallet';
 import { sendNotification, NotificationTemplates } from '@/lib/notifications';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { z } from 'zod';
 
 const createBidSchema = z.object({
@@ -179,24 +179,24 @@ export async function GET(request: NextRequest) {
   try {
     // Authenticate user
     const authHeader = request.headers.get('authorization');
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
-    
+
     const token = authHeader.substring(7);
     const user = await getUserFromToken(token);
-    
+
     if (!user) {
       return NextResponse.json(
         { error: 'Invalid token' },
         { status: 401 }
       );
     }
-    
+
     // Get user's bids with vehicle details
     const userBids = await db
       .select({
@@ -206,13 +206,21 @@ export async function GET(request: NextRequest) {
       .from(bids)
       .leftJoin(vehicles, eq(bids.vehicleId, vehicles.id))
       .where(eq(bids.userId, user.id))
-      .orderBy(bids.createdAt);
-    
+      .orderBy(desc(bids.createdAt));
+
+    // Also get user's bid requests (not yet linked to vehicles)
+    const userBidRequests = await db
+      .select()
+      .from(bidRequests)
+      .where(eq(bidRequests.userId, user.id))
+      .orderBy(desc(bidRequests.createdAt));
+
     return NextResponse.json({
       success: true,
       data: userBids,
+      bidRequests: userBidRequests,
     });
-    
+
   } catch (error) {
     console.error('Bids fetch error:', error);
     return NextResponse.json(

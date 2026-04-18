@@ -52,6 +52,16 @@ interface Bid {
   };
 }
 
+interface BidRequest {
+  id: string;
+  auctionLink: string;
+  auctionSource: string;
+  maxBidAmount: string;
+  notes: string | null;
+  status: string;
+  createdAt: string;
+}
+
 const CountdownTimer = ({ bidCreatedAt, onComplete }: { bidCreatedAt: string | null; onComplete: () => void }) => {
   const [timeLeft, setTimeLeft] = useState('');
   const [isComplete, setIsComplete] = useState(false);
@@ -109,8 +119,10 @@ const CountdownTimer = ({ bidCreatedAt, onComplete }: { bidCreatedAt: string | n
 
 export default function BidsPage() {
   const [bids, setBids] = useState<Bid[]>([]);
+  const [bidRequests, setBidRequests] = useState<BidRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState<'pending' | 'won' | 'lost' | 'all'>('pending');
   const [showFundModal, setShowFundModal] = useState(false);
   const [fundCurrency, setFundCurrency] = useState<'NGN' | 'USD'>('NGN');
   const [fundAmount, setFundAmount] = useState('');
@@ -142,7 +154,8 @@ export default function BidsPage() {
       const data = await response.json();
 
       if (data.success) {
-        setBids(data.data);
+        setBids(data.data || []);
+        setBidRequests(data.bidRequests || []);
       } else {
         setError(data.error || 'Failed to fetch bids');
       }
@@ -154,9 +167,23 @@ export default function BidsPage() {
     }
   };
 
+  // Filter bids based on active tab
+  const filteredBids = bids.filter(item => {
+    if (activeTab === 'all') return true;
+    if (activeTab === 'pending') return item.bid.status === 'pending';
+    if (activeTab === 'won') return item.bid.status === 'won';
+    if (activeTab === 'lost') return item.bid.status === 'lost' || item.bid.status === 'outbid';
+    return true;
+  });
+
+  // Count for tabs
+  const pendingCount = bids.filter(b => b.bid.status === 'pending').length + bidRequests.filter(br => br.status === 'pending').length;
+  const wonCount = bids.filter(b => b.bid.status === 'won').length;
+  const lostCount = bids.filter(b => b.bid.status === 'lost' || b.bid.status === 'outbid').length;
+
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      pending: { color: 'bg-primary-100 text-primary-800 border-primary-300', icon: Clock, label: 'In Progress' },
+      pending: { color: 'bg-yellow-100 text-yellow-800 border-yellow-300', icon: Clock, label: 'Pending' },
       won: { color: 'bg-green-100 text-green-800 border-green-300', icon: CheckCircle, label: 'Won' },
       lost: { color: 'bg-red-100 text-red-800 border-red-300', icon: XCircle, label: 'Lost' },
       outbid: { color: 'bg-orange-100 text-orange-800 border-orange-300', icon: TrendingUp, label: 'Outbid' },
@@ -223,6 +250,50 @@ export default function BidsPage() {
         </Alert>
       )}
 
+      {/* Tabs */}
+      <div className="flex gap-2 border-b pb-2">
+        <button
+          onClick={() => setActiveTab('pending')}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === 'pending'
+              ? 'bg-yellow-100 text-yellow-800'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          In Progress {pendingCount > 0 && `(${pendingCount})`}
+        </button>
+        <button
+          onClick={() => setActiveTab('won')}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === 'won'
+              ? 'bg-green-100 text-green-800'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          Won {wonCount > 0 && `(${wonCount})`}
+        </button>
+        <button
+          onClick={() => setActiveTab('lost')}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === 'lost'
+              ? 'bg-red-100 text-red-800'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          Lost {lostCount > 0 && `(${lostCount})`}
+        </button>
+        <button
+          onClick={() => setActiveTab('all')}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === 'all'
+              ? 'bg-gray-200 text-gray-800'
+              : 'text-gray-600 hover:bg-gray-100'
+          }`}
+        >
+          All ({bids.length + bidRequests.length})
+        </button>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -280,8 +351,77 @@ export default function BidsPage() {
         </Card>
       </div>
 
+      {/* Bid Requests (Pending) - Show in pending and all tabs */}
+      {(activeTab === 'pending' || activeTab === 'all') && bidRequests.filter(br => br.status === 'pending').length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-700">Pending Requests</h3>
+          {bidRequests.filter(br => br.status === 'pending').map((request) => (
+            <Card key={request.id} className="hover:shadow-lg transition-shadow relative border-yellow-200">
+              <div className="absolute top-4 right-4 z-10">
+                <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 border flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Pending
+                </Badge>
+              </div>
+              <CardContent className="p-6">
+                <div className="flex flex-col md:flex-row gap-6">
+                  {/* Placeholder Image */}
+                  <div className="w-full md:w-48 h-[150px] bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
+                    <Car className="h-12 w-12 text-gray-400" />
+                  </div>
+
+                  {/* Request Details */}
+                  <div className="flex-1 space-y-3">
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900">
+                        Bid Request - {request.auctionSource.toUpperCase()}
+                      </h3>
+                      <p className="text-sm text-gray-600 truncate max-w-md">
+                        {request.auctionLink}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <p className="text-gray-600">Your Max Bid</p>
+                        <p className="font-semibold text-lg text-brand-dark">
+                          ${parseFloat(request.maxBidAmount).toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Submitted</p>
+                        <p className="font-semibold">
+                          {new Date(request.createdAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-600">Status</p>
+                        <p className="font-semibold text-yellow-700">Reviewing vehicle details</p>
+                      </div>
+                    </div>
+
+                    {request.notes && (
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <p className="text-sm text-gray-600">
+                          <strong>Notes:</strong> {request.notes}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
       {/* Bids List */}
-      {bids.length === 0 ? (
+      {filteredBids.length === 0 && bidRequests.filter(br => activeTab === 'all' || br.status === 'pending').length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
             <ShoppingCart className="h-16 w-16 text-gray-300 mx-auto mb-4" />
@@ -295,9 +435,10 @@ export default function BidsPage() {
             </Button>
           </CardContent>
         </Card>
-      ) : (
+      ) : filteredBids.length > 0 ? (
         <div className="space-y-4">
-          {bids.map((item) => (
+          {activeTab === 'pending' || activeTab === 'all' ? <h3 className="text-lg font-semibold text-gray-700">Active Bids</h3> : null}
+          {filteredBids.map((item) => (
             <Card key={item.bid.id} className="hover:shadow-lg transition-shadow relative">
               <div className="absolute top-4 right-4 z-10">
                 {getStatusBadge(item.bid.status)}
@@ -473,7 +614,7 @@ export default function BidsPage() {
             </Card>
           ))}
         </div>
-      )}
+      ) : null}
 
       {/* Fund Wallet Modal */}
       <Dialog open={showFundModal} onOpenChange={setShowFundModal}>
