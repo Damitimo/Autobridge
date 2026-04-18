@@ -21,6 +21,7 @@ export default function HomePage() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [alreadyExists, setAlreadyExists] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -72,6 +73,10 @@ export default function HomePage() {
 
         const data = await response.json();
         if (data.success) {
+          // Check if message indicates already exists
+          if (data.message?.includes('already')) {
+            setAlreadyExists(true);
+          }
           setSubmitted(true);
         }
       } catch (error) {
@@ -156,7 +161,9 @@ export default function HomePage() {
           </h2>
           {submitted ? (
             <p className="text-brand-gold text-sm md:text-base">
-              Thanks! We&apos;ll notify you when we launch.
+              {alreadyExists
+                ? "We already have your details! You'll be notified when we launch."
+                : "Thanks! We'll notify you when we launch."}
             </p>
           ) : (
             <form onSubmit={handleEmailSubmit} className="flex flex-col md:flex-row gap-2 md:gap-3">
