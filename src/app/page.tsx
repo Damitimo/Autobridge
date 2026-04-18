@@ -161,18 +161,11 @@ export default function HomePage() {
             Be the first to know
           </h2>
           {submitted ? (
-            <div className="text-center">
-              <p className="text-brand-gold text-sm md:text-base font-semibold">
-                {alreadyExists
-                  ? "You're already on the list!"
-                  : `You're #${waitlistCount} on the list!`}
-              </p>
-              <p className="text-white/70 text-xs md:text-sm mt-1">
-                {alreadyExists
-                  ? "We've got your details. You'll be first to know when we launch."
-                  : `Join ${waitlistCount > 1 ? waitlistCount - 1 : ''} other${waitlistCount > 2 ? 's' : ''} waiting for a better way to import cars.`}
-              </p>
-            </div>
+            <p className="text-brand-gold text-sm md:text-base">
+              {alreadyExists
+                ? "You're already on our list. We'll notify you when we launch!"
+                : `You've just joined ${waitlistCount} ${waitlistCount === 1 ? 'person' : 'others'} waiting for a better way to import cars. We'll notify you!`}
+            </p>
           ) : (
             <form onSubmit={handleEmailSubmit} className="flex flex-col md:flex-row gap-2 md:gap-3">
               <input
