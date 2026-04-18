@@ -257,7 +257,7 @@ export default function DashboardPage() {
             <div className="bg-white text-gray-900 px-4 py-3 rounded-lg font-mono font-bold text-lg inline-block">
               {user.referralCode}
             </div>
-            <Button variant="outline" className="ml-4 border-white text-white hover:bg-primary-700">
+            <Button variant="outline" className="ml-4 border-white text-white bg-transparent hover:bg-white/10">
               Copy Code
             </Button>
           </CardContent>

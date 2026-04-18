@@ -178,33 +178,6 @@ export default function DashboardLayout({
             </Link>
           </div>
 
-          {/* User Info */}
-          {user && (
-            <div className="p-4 border-b">
-              <div className="flex items-center space-x-3">
-                {user.image ? (
-                  <Image
-                    src={user.image}
-                    alt="Profile"
-                    width={40}
-                    height={40}
-                    className="rounded-full"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-brand-dark flex items-center justify-center text-white font-semibold">
-                    {user.firstName?.[0]}{user.lastName?.[0]}
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">
-                    {user.firstName} {user.lastName}
-                  </p>
-                  <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
             {sidebarItems.map((item) => {
@@ -253,7 +226,86 @@ export default function DashboardLayout({
 
       {/* Main Content */}
       <main className="lg:ml-64">
-        {children}
+        {/* Top Navigation Bar */}
+        <header className="bg-white border-b border-gray-200 sticky top-0 z-20">
+          <div className="flex items-center justify-between px-4 lg:px-6 h-16">
+            {/* Left side - spacer for mobile menu button */}
+            <div className="lg:hidden w-12" />
+
+            {/* Page title or breadcrumb could go here */}
+            <div className="hidden lg:block">
+              <h2 className="text-lg font-semibold text-gray-800">
+                {pathname === '/dashboard' && 'Dashboard'}
+                {pathname === '/dashboard/wallet' && 'My Wallet'}
+                {pathname === '/dashboard/bids' && 'My Bids'}
+                {pathname === '/dashboard/shipments' && 'Shipments'}
+                {pathname === '/dashboard/notifications' && 'Notifications'}
+                {pathname === '/dashboard/profile' && 'Profile'}
+              </h2>
+            </div>
+
+            {/* Right side - User info */}
+            <div className="flex items-center space-x-4">
+              {/* Wallet Balance */}
+              <Link
+                href="/dashboard/wallet"
+                className="hidden sm:flex items-center space-x-2 px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <Wallet className="h-4 w-4 text-brand-dark" />
+                <span className="text-sm font-medium text-gray-700">Wallet</span>
+              </Link>
+
+              {/* Notifications */}
+              <Link
+                href="/dashboard/notifications"
+                className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <Bell className="h-5 w-5" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              </Link>
+
+              {/* User Avatar Dropdown */}
+              {user && (
+                <div className="flex items-center space-x-3">
+                  <Link
+                    href="/dashboard/profile"
+                    className="flex items-center space-x-2 hover:bg-gray-100 rounded-lg p-2 transition-colors"
+                  >
+                    {user.image ? (
+                      <Image
+                        src={user.image}
+                        alt="Profile"
+                        width={36}
+                        height={36}
+                        className="rounded-full"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-brand-dark flex items-center justify-center text-white font-semibold text-sm">
+                        {user.firstName?.[0]}{user.lastName?.[0]}
+                      </div>
+                    )}
+                    <span className="hidden md:block text-sm font-medium text-gray-700">
+                      {user.firstName}
+                    </span>
+                  </Link>
+
+                  <button
+                    onClick={handleLogout}
+                    className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                    title="Logout"
+                  >
+                    <LogOut className="h-5 w-5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* Page Content */}
+        <div className="p-4 lg:p-6">
+          {children}
+        </div>
       </main>
     </div>
   );

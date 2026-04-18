@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 
 export function Footer() {
   const pathname = usePathname();
@@ -14,7 +15,13 @@ export function Footer() {
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
-            <h3 className="text-xl font-bold mb-4">AutoBridge</h3>
+            <Image
+              src="/logo-wide-white.svg"
+              alt="AutoBridge"
+              width={180}
+              height={50}
+              className="mb-4"
+            />
             <p className="text-gray-400 text-sm">
               Making vehicle importation from the U.S. to Nigeria as easy as ordering online.
             </p>

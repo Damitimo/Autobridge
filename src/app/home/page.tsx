@@ -115,7 +115,7 @@ export default function HomePage() {
                 </Button>
               </Link>
               <Link href="/how-to-buy">
-                <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10 text-lg px-8 py-6">
+                <Button size="lg" variant="outline" className="border-white text-brand-dark bg-white hover:bg-gray-100 text-lg px-8 py-6">
                   How It Works
                 </Button>
               </Link>

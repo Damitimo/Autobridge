@@ -5,19 +5,23 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
-  ShoppingCart, 
-  AlertCircle, 
-  DollarSign, 
+import { Textarea } from '@/components/ui/textarea';
+import {
+  ShoppingCart,
+  AlertCircle,
+  DollarSign,
   Calendar,
   Car,
   TrendingUp,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  Plus,
+  Link as LinkIcon,
+  Send
 } from 'lucide-react';
 import Link from 'next/link';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -115,6 +119,13 @@ export default function BidsPage() {
   const [selectedShipment, setSelectedShipment] = useState<any>(null);
   const [processing, setProcessing] = useState(false);
 
+  // New bid request state
+  const [showNewBidModal, setShowNewBidModal] = useState(false);
+  const [auctionLink, setAuctionLink] = useState('');
+  const [maxBidAmount, setMaxBidAmount] = useState('');
+  const [additionalNotes, setAdditionalNotes] = useState('');
+  const [submittingBid, setSubmittingBid] = useState(false);
+
   useEffect(() => {
     fetchBids();
   }, []);
@@ -198,12 +209,10 @@ export default function BidsPage() {
           <h1 className="text-3xl font-bold text-gray-900">My Bids</h1>
           <p className="text-gray-600 mt-1">Track your active and past bids</p>
         </div>
-        <Link href="/vehicles">
-          <Button>
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            Browse Vehicles
-          </Button>
-        </Link>
+        <Button onClick={() => setShowNewBidModal(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Request New Bid
+        </Button>
       </div>
 
       {/* Error Alert */}
@@ -278,11 +287,12 @@ export default function BidsPage() {
             <ShoppingCart className="h-16 w-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">No Bids Yet</h3>
             <p className="text-gray-600 mb-6">
-              Start browsing vehicles to place your first bid
+              Paste an auction link from Copart or IAAI to request your first bid
             </p>
-            <Link href="/vehicles">
-              <Button>Browse Vehicles</Button>
-            </Link>
+            <Button onClick={() => setShowNewBidModal(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Request Your First Bid
+            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -391,11 +401,6 @@ export default function BidsPage() {
                     )}
 
                     <div className="flex gap-3 pt-2">
-                      <Link href={`/vehicles/${item.vehicle.id}`}>
-                        <Button variant="outline" size="sm">
-                          View Details
-                        </Button>
-                      </Link>
                       {item.bid.status === 'won' && !item.bid.finalBidAmount && (
                         <Button 
                           size="sm" 
@@ -664,6 +669,141 @@ export default function BidsPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* New Bid Request Modal */}
+      <Dialog open={showNewBidModal} onOpenChange={setShowNewBidModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LinkIcon className="h-5 w-5" />
+              Request a Bid
+            </DialogTitle>
+            <DialogDescription>
+              Paste an auction link from Copart or IAAI and we'll bid on your behalf
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Auction Link <span className="text-red-500">*</span>
+              </label>
+              <Input
+                placeholder="https://www.copart.com/lot/12345678 or IAAI link"
+                value={auctionLink}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAuctionLink(e.target.value)}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Copy the full URL from Copart or IAAI auction page
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Your Maximum Bid (USD) <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                <Input
+                  type="number"
+                  placeholder="8,000"
+                  className="pl-7"
+                  value={maxBidAmount}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMaxBidAmount(e.target.value)}
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                This is the maximum you're willing to pay for the vehicle (not including fees)
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Additional Notes (Optional)
+              </label>
+              <Textarea
+                placeholder="Any specific requirements or questions about this vehicle..."
+                value={additionalNotes}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setAdditionalNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <h4 className="font-medium text-amber-800 mb-2">What happens next?</h4>
+              <ol className="text-sm text-amber-700 space-y-1 list-decimal list-inside">
+                <li>We'll review the vehicle and provide a full cost breakdown</li>
+                <li>You'll pay a 10% refundable deposit to confirm</li>
+                <li>We bid on your behalf up to your max amount</li>
+                <li>If you win, you pay the balance within 48 hours</li>
+              </ol>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setShowNewBidModal(false);
+                  setAuctionLink('');
+                  setMaxBidAmount('');
+                  setAdditionalNotes('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={!auctionLink || !maxBidAmount || submittingBid}
+                onClick={async () => {
+                  if (!auctionLink.includes('copart.com') && !auctionLink.includes('iaai.com')) {
+                    alert('Please enter a valid Copart or IAAI auction link');
+                    return;
+                  }
+
+                  setSubmittingBid(true);
+                  try {
+                    const token = localStorage.getItem('token');
+                    const response = await fetch('/api/bids/request', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                      },
+                      body: JSON.stringify({
+                        auctionLink,
+                        maxBidAmount: parseFloat(maxBidAmount),
+                        notes: additionalNotes,
+                      }),
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                      alert('Bid request submitted! We\'ll send you a cost breakdown shortly.');
+                      setShowNewBidModal(false);
+                      setAuctionLink('');
+                      setMaxBidAmount('');
+                      setAdditionalNotes('');
+                      fetchBids(); // Refresh the bids list
+                    } else {
+                      alert(data.error || 'Failed to submit bid request');
+                    }
+                  } catch (error) {
+                    console.error('Error submitting bid request:', error);
+                    alert('Failed to submit bid request. Please try again.');
+                  } finally {
+                    setSubmittingBid(false);
+                  }
+                }}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                {submittingBid ? 'Submitting...' : 'Submit Request'}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
