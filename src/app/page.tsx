@@ -149,41 +149,41 @@ export default function HomePage() {
       </div>
 
       {/* Be the first to know */}
-      <div className="mt-8 md:mt-12 text-center w-full max-w-[360px] sm:max-w-xl md:max-w-2xl lg:max-w-3xl mx-auto px-4 py-6 border border-white/20 rounded-xl">
-        <h2 className="text-white text-base md:text-2xl font-semibold mb-3 md:mb-4">
-          Be the first to know
-        </h2>
-        {submitted ? (
-          <p className="text-brand-gold text-sm md:text-base">
-            Thanks! We&apos;ll notify you when we launch.
-          </p>
-        ) : (
-          <form onSubmit={handleEmailSubmit} className="flex flex-col gap-2 sm:gap-3 max-w-md mx-auto">
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+      <div className="mt-8 md:mt-12 text-center w-full px-4 md:px-0" style={{ maxWidth: 'fit-content' }}>
+        <div className="px-4 py-4 md:px-8 md:py-6 border border-white/20 rounded-xl">
+          <h2 className="text-white text-base md:text-xl font-semibold mb-3 md:mb-4">
+            Be the first to know
+          </h2>
+          {submitted ? (
+            <p className="text-brand-gold text-sm md:text-base">
+              Thanks! We&apos;ll notify you when we launch.
+            </p>
+          ) : (
+            <form onSubmit={handleEmailSubmit} className="flex flex-col md:flex-row gap-2 md:gap-3">
               <input
                 type="email"
                 placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="flex-1 px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg bg-white/10 border border-white/20 text-white text-sm sm:text-base placeholder-white/50 focus:outline-none focus:border-brand-gold focus:ring-1 focus:ring-brand-gold"
+                className="flex-1 px-3 py-2.5 md:px-4 md:py-3 rounded-lg bg-white/10 border border-white/20 text-white text-sm md:text-base placeholder-white/50 focus:outline-none focus:border-brand-gold focus:ring-1 focus:ring-brand-gold min-w-0 md:min-w-[180px]"
               />
               <input
                 type="tel"
                 placeholder="Phone number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="flex-1 px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg bg-white/10 border border-white/20 text-white text-sm sm:text-base placeholder-white/50 focus:outline-none focus:border-brand-gold focus:ring-1 focus:ring-brand-gold"
+                className="flex-1 px-3 py-2.5 md:px-4 md:py-3 rounded-lg bg-white/10 border border-white/20 text-white text-sm md:text-base placeholder-white/50 focus:outline-none focus:border-brand-gold focus:ring-1 focus:ring-brand-gold min-w-0 md:min-w-[160px]"
               />
-            </div>
-            <button
-              type="submit"
-              className="w-full px-5 py-2.5 sm:px-6 sm:py-3 bg-brand-gold text-brand-dark text-sm sm:text-base font-semibold rounded-lg hover:bg-yellow-400 transition-colors"
-            >
-              Notify Me
-            </button>
-          </form>
-        )}
+              <button
+                type="submit"
+                className="px-5 py-2.5 md:px-6 md:py-3 bg-brand-gold text-brand-dark text-sm md:text-base font-semibold rounded-lg hover:bg-yellow-400 transition-colors whitespace-nowrap"
+              >
+                Notify Me
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );
