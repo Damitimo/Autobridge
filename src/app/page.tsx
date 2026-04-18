@@ -164,7 +164,7 @@ export default function HomePage() {
             <p className="text-brand-gold text-sm md:text-base">
               {alreadyExists
                 ? "You're already on our list. We'll notify you when we launch!"
-                : `You've just joined ${waitlistCount + 80} others waiting for a better way to import cars. We'll notify you!`}
+                : `You've just joined ${waitlistCount + 80} others waiting for a better way to import cars. We'll notify you when we launch!`}
             </p>
           ) : (
             <form onSubmit={handleEmailSubmit} className="flex flex-col md:flex-row gap-2 md:gap-3">
