@@ -4,16 +4,16 @@ import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getUserFromToken } from '@/lib/auth';
-import { scrapeCopartVehicle } from '@/lib/scrapers/copart';
 import jwt from 'jsonwebtoken';
 
 export const dynamic = 'force-dynamic';
 
-// Increase timeout for Puppeteer operations
-export const maxDuration = 60;
+// Scraper service URL (Railway)
+const SCRAPER_URL = process.env.SCRAPER_URL || 'http://localhost:3001';
+const SCRAPER_API_KEY = process.env.SCRAPER_API_KEY || 'your-secret-key';
 
 async function getAuthenticatedUser(request: NextRequest) {
-  // Try JWT token from Authorization header first
+  // Try JWT token from Authorization header
   const authHeader = request.headers.get('authorization');
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
@@ -23,14 +23,13 @@ async function getAuthenticatedUser(request: NextRequest) {
     }
   }
 
-  // Try to get user from NextAuth session cookie
+  // Try NextAuth session cookie
   try {
     const cookieStore = cookies();
     const sessionToken = cookieStore.get('next-auth.session-token')?.value ||
                          cookieStore.get('__Secure-next-auth.session-token')?.value;
 
     if (sessionToken) {
-      // Decode the JWT session token
       const decoded = jwt.decode(sessionToken) as any;
       if (decoded?.email) {
         const dbUser = await db
@@ -39,9 +38,7 @@ async function getAuthenticatedUser(request: NextRequest) {
           .where(eq(users.email, decoded.email))
           .limit(1);
 
-        if (dbUser.length > 0) {
-          return dbUser[0];
-        }
+        if (dbUser.length > 0) return dbUser[0];
       }
     }
   } catch (error) {
@@ -51,7 +48,6 @@ async function getAuthenticatedUser(request: NextRequest) {
   // Try cookie header directly
   const cookieHeader = request.headers.get('cookie');
   if (cookieHeader) {
-    // Extract session token from cookie header
     const sessionMatch = cookieHeader.match(/next-auth\.session-token=([^;]+)/);
     if (sessionMatch) {
       try {
@@ -63,9 +59,7 @@ async function getAuthenticatedUser(request: NextRequest) {
             .where(eq(users.email, decoded.email))
             .limit(1);
 
-          if (dbUser.length > 0) {
-            return dbUser[0];
-          }
+          if (dbUser.length > 0) return dbUser[0];
         }
       } catch (e) {
         // Continue
@@ -122,11 +116,31 @@ export async function POST(request: NextRequest) {
 
     let vehicle;
     if (isCopart) {
-      console.log('Starting Copart scrape for lot:', lotNumber);
-      vehicle = await scrapeCopartVehicle(auctionLink);
-      console.log('Scrape complete, found:', vehicle.title);
+      console.log('Calling scraper service for lot:', lotNumber);
+
+      // Call external scraper service
+      const scraperResponse = await fetch(`${SCRAPER_URL}/scrape/copart`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': SCRAPER_API_KEY,
+        },
+        body: JSON.stringify({ url: auctionLink }),
+      });
+
+      const scraperData = await scraperResponse.json();
+
+      if (!scraperResponse.ok) {
+        console.error('Scraper error:', scraperData);
+        return NextResponse.json(
+          { error: scraperData.error || 'Failed to fetch vehicle details' },
+          { status: scraperResponse.status }
+        );
+      }
+
+      vehicle = scraperData.vehicle;
+      console.log('Scrape complete:', vehicle.title);
     } else {
-      // IAAI - for now just parse URL
       return NextResponse.json(
         { error: 'IAAI lookup coming soon. Please use Copart links for now.' },
         { status: 400 }
