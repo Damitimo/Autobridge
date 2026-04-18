@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, AlertCircle, Link2, Car, DollarSign, ExternalLink, Info, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle, Link2, Car, DollarSign, ExternalLink, Info, ChevronLeft, ChevronRight, X, ZoomIn } from 'lucide-react';
 
 interface VehicleDetails {
   title: string;
@@ -39,6 +39,7 @@ export default function NewBidRequestPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const isValidUrl = (url: string) => {
     const lower = url.toLowerCase();
@@ -181,13 +182,20 @@ export default function NewBidRequestPage() {
                   {vehicleDetails.images && vehicleDetails.images.length > 0 ? (
                     <div className="relative">
                       {/* Main Image */}
-                      <div className="relative h-[300px] rounded-lg overflow-hidden">
+                      <div
+                        className="relative h-[300px] rounded-lg overflow-hidden cursor-pointer group"
+                        onClick={() => setLightboxOpen(true)}
+                      >
                         <Image
                           src={vehicleDetails.images[currentImageIndex]}
                           alt={`${vehicleDetails.title} - Image ${currentImageIndex + 1}`}
                           fill
                           className="object-cover"
                         />
+                        {/* Zoom hint */}
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                          <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
                         {/* Navigation Arrows */}
                         {vehicleDetails.images.length > 1 && (
                           <>
@@ -385,6 +393,89 @@ export default function NewBidRequestPage() {
             </Card>
           </div>
         </div>
+
+        {/* Lightbox Modal */}
+        {lightboxOpen && vehicleDetails.images && vehicleDetails.images.length > 0 && (
+          <div
+            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center"
+            onClick={() => setLightboxOpen(false)}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setLightboxOpen(false)}
+              className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+            >
+              <X className="h-8 w-8" />
+            </button>
+
+            {/* Image Counter */}
+            <div className="absolute top-4 left-4 text-white text-lg">
+              {currentImageIndex + 1} / {vehicleDetails.images.length}
+            </div>
+
+            {/* Main Image */}
+            <div
+              className="relative w-full h-full flex items-center justify-center p-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Image
+                src={vehicleDetails.images[currentImageIndex]}
+                alt={`${vehicleDetails.title} - Image ${currentImageIndex + 1}`}
+                width={1200}
+                height={800}
+                className="max-w-full max-h-full object-contain"
+              />
+            </div>
+
+            {/* Navigation Arrows */}
+            {vehicleDetails.images.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentImageIndex(prev => prev === 0 ? vehicleDetails.images!.length - 1 : prev - 1);
+                  }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-colors"
+                >
+                  <ChevronLeft className="h-8 w-8" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentImageIndex(prev => prev === vehicleDetails.images!.length - 1 ? 0 : prev + 1);
+                  }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-colors"
+                >
+                  <ChevronRight className="h-8 w-8" />
+                </button>
+              </>
+            )}
+
+            {/* Thumbnails */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 max-w-[90vw] overflow-x-auto p-2">
+              {vehicleDetails.images.map((img, idx) => (
+                <button
+                  key={idx}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentImageIndex(idx);
+                  }}
+                  className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
+                    currentImageIndex === idx ? 'border-brand-gold' : 'border-transparent hover:border-white/50'
+                  }`}
+                >
+                  <Image
+                    src={img}
+                    alt={`Thumbnail ${idx + 1}`}
+                    width={64}
+                    height={64}
+                    className="object-cover w-full h-full"
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
