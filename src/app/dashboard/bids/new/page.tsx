@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, AlertCircle, Link2, Car, DollarSign, ExternalLink, Info } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle, Link2, Car, DollarSign, ExternalLink, Info, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface VehicleDetails {
   title: string;
@@ -38,6 +38,7 @@ export default function NewBidRequestPage() {
   const [maxBidAmount, setMaxBidAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const isValidUrl = (url: string) => {
     const lower = url.toLowerCase();
@@ -64,6 +65,7 @@ export default function NewBidRequestPage() {
 
       if (response.ok && data.success) {
         setVehicleDetails(data.vehicle);
+        setCurrentImageIndex(0);
         setStep('details');
       } else {
         setError(data.error || 'Failed to fetch vehicle details');
@@ -174,9 +176,64 @@ export default function NewBidRequestPage() {
 
             <Card>
               <CardContent className="pt-6">
-                {/* Vehicle Image */}
+                {/* Vehicle Image Gallery */}
                 <div className="mb-6">
-                  {vehicleDetails.imageUrl ? (
+                  {vehicleDetails.images && vehicleDetails.images.length > 0 ? (
+                    <div className="relative">
+                      {/* Main Image */}
+                      <div className="relative h-[300px] rounded-lg overflow-hidden">
+                        <Image
+                          src={vehicleDetails.images[currentImageIndex]}
+                          alt={`${vehicleDetails.title} - Image ${currentImageIndex + 1}`}
+                          fill
+                          className="object-cover"
+                        />
+                        {/* Navigation Arrows */}
+                        {vehicleDetails.images.length > 1 && (
+                          <>
+                            <button
+                              onClick={() => setCurrentImageIndex(prev => prev === 0 ? vehicleDetails.images!.length - 1 : prev - 1)}
+                              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
+                            >
+                              <ChevronLeft className="h-5 w-5" />
+                            </button>
+                            <button
+                              onClick={() => setCurrentImageIndex(prev => prev === vehicleDetails.images!.length - 1 ? 0 : prev + 1)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
+                            >
+                              <ChevronRight className="h-5 w-5" />
+                            </button>
+                          </>
+                        )}
+                        {/* Image Counter */}
+                        <div className="absolute bottom-2 right-2 bg-black/50 text-white text-sm px-2 py-1 rounded">
+                          {currentImageIndex + 1} / {vehicleDetails.images.length}
+                        </div>
+                      </div>
+                      {/* Thumbnails */}
+                      {vehicleDetails.images.length > 1 && (
+                        <div className="flex gap-2 mt-2 overflow-x-auto pb-2">
+                          {vehicleDetails.images.slice(0, 8).map((img, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setCurrentImageIndex(idx)}
+                              className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
+                                currentImageIndex === idx ? 'border-brand-gold' : 'border-transparent hover:border-gray-300'
+                              }`}
+                            >
+                              <Image
+                                src={img}
+                                alt={`Thumbnail ${idx + 1}`}
+                                width={64}
+                                height={64}
+                                className="object-cover w-full h-full"
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : vehicleDetails.imageUrl ? (
                     <Image
                       src={vehicleDetails.imageUrl}
                       alt={vehicleDetails.title}
