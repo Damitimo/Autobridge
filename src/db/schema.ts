@@ -705,3 +705,12 @@ export const messagesRelations = relations(messages, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// Waitlist Table
+export const waitlist = pgTable('waitlist', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  email: varchar('email', { length: 255 }).notNull().unique(),
+  phone: varchar('phone', { length: 50 }),
+  source: varchar('source', { length: 50 }).default('homepage'), // 'homepage', 'landing', etc.
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});

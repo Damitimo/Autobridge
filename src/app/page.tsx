@@ -60,11 +60,25 @@ export default function HomePage() {
     router.push('/home');
   };
 
-  const handleEmailSubmit = (e: React.FormEvent) => {
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (email) {
-      // TODO: Send to backend/email service
-      setSubmitted(true);
+      try {
+        const response = await fetch('/api/waitlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, phone }),
+        });
+
+        const data = await response.json();
+        if (data.success) {
+          setSubmitted(true);
+        }
+      } catch (error) {
+        console.error('Waitlist error:', error);
+        // Still show success to not block user
+        setSubmitted(true);
+      }
     }
   };
 
