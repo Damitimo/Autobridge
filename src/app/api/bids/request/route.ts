@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { users } from '@/db/schema';
+import { bidRequests } from '@/db/schema';
 import { getUserFromToken } from '@/lib/auth';
-import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 const bidRequestSchema = z.object({
@@ -57,35 +56,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Determine auction source
-    const auctionSource = url.includes('copart.com') ? 'Copart' : 'IAAI';
+    const auctionSource = url.includes('copart.com') ? 'copart' : 'iaai';
 
-    // For MVP: Store the request in a simple way
-    // In production, this would go to a bid_requests table
-    // For now, we'll log it and return success
-    console.log('New bid request:', {
+    // Store the bid request in the database
+    const [newRequest] = await db.insert(bidRequests).values({
       userId: user.id,
-      userEmail: user.email,
-      userName: `${user.firstName} ${user.lastName}`,
       auctionLink: validated.auctionLink,
       auctionSource,
-      maxBidAmount: validated.maxBidAmount,
-      notes: validated.notes,
-      createdAt: new Date().toISOString(),
-    });
+      maxBidAmount: validated.maxBidAmount.toString(),
+      notes: validated.notes || null,
+      status: 'pending',
+    }).returning();
 
-    // TODO: In production:
-    // 1. Store in bid_requests table
-    // 2. Send notification to admin
-    // 3. Create a task for the operations team
-
-    // For now, just return success
     return NextResponse.json({
       success: true,
       message: 'Bid request submitted successfully',
       data: {
-        auctionSource,
+        id: newRequest.id,
+        auctionSource: auctionSource.toUpperCase(),
         maxBidAmount: validated.maxBidAmount,
-        status: 'pending_review',
+        status: 'pending',
         estimatedResponse: '2-4 hours',
       },
     }, { status: 201 });

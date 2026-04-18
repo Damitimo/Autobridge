@@ -15,7 +15,8 @@ import {
   Bell,
   LogOut,
   Menu,
-  X
+  X,
+  MessageSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -34,6 +35,11 @@ const sidebarItems = [
     name: 'My Bids',
     href: '/dashboard/bids',
     icon: ShoppingCart,
+  },
+  {
+    name: 'Messages',
+    href: '/dashboard/messages',
+    icon: MessageSquare,
   },
   {
     name: 'Shipments',
@@ -159,14 +165,14 @@ export default function DashboardLayout({
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed top-0 left-0 z-40 h-screen transition-transform bg-white border-r border-gray-200",
+          "fixed top-0 left-0 z-40 h-screen transition-transform bg-brand-dark",
           "w-64 lg:translate-x-0",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         <div className="h-full flex flex-col">
           {/* Logo */}
-          <div className="p-6 border-b">
+          <div className="p-6 border-b border-white/10">
             <Link href="/" className="flex items-center space-x-2">
               <Image
                 src="/logo-wide.svg"
@@ -183,7 +189,7 @@ export default function DashboardLayout({
             {sidebarItems.map((item) => {
               const isActive = pathname === item.href;
               const Icon = item.icon;
-              
+
               return (
                 <Link
                   key={item.href}
@@ -192,8 +198,8 @@ export default function DashboardLayout({
                   className={cn(
                     "flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors",
                     isActive
-                      ? "bg-accent-50 text-brand-dark font-medium"
-                      : "text-gray-700 hover:bg-gray-100"
+                      ? "bg-brand-gold text-brand-dark font-medium"
+                      : "text-white/80 hover:bg-white/10 hover:text-white"
                   )}
                 >
                   <Icon className="h-5 w-5" />
@@ -204,10 +210,10 @@ export default function DashboardLayout({
           </nav>
 
           {/* Logout Button */}
-          <div className="p-4 border-t">
+          <div className="p-4 border-t border-white/10">
             <button
               onClick={handleLogout}
-              className="flex items-center space-x-3 px-4 py-3 w-full rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+              className="flex items-center space-x-3 px-4 py-3 w-full rounded-lg text-white/80 hover:bg-white/10 hover:text-white transition-colors"
             >
               <LogOut className="h-5 w-5" />
               <span>Logout</span>
@@ -238,6 +244,7 @@ export default function DashboardLayout({
                 {pathname === '/dashboard' && 'Dashboard'}
                 {pathname === '/dashboard/wallet' && 'My Wallet'}
                 {pathname === '/dashboard/bids' && 'My Bids'}
+                {pathname === '/dashboard/messages' && 'Messages'}
                 {pathname === '/dashboard/shipments' && 'Shipments'}
                 {pathname === '/dashboard/notifications' && 'Notifications'}
                 {pathname === '/dashboard/profile' && 'Profile'}

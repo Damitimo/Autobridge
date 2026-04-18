@@ -2,10 +2,35 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    domains: ['cs.copart.com', 'www.iaai.com', 'images.iaai.com', 'lh3.googleusercontent.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'cs.copart.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.copart.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.iaai.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.iaai.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+      },
+    ],
   },
   env: {
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  },
+  // Needed for Puppeteer
+  experimental: {
+    serverComponentsExternalPackages: ['puppeteer-extra', 'puppeteer-extra-plugin-stealth', 'puppeteer'],
   },
 }
 

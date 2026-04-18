@@ -82,11 +82,18 @@ const handler = NextAuth({
       return session;
     },
     async redirect({ url, baseUrl }) {
-      // Check if user needs to pay signup fee
-      if (url.includes("/api/auth/callback")) {
-        return `${baseUrl}/auth/callback`;
+      // If the URL starts with baseUrl, use it directly
+      if (url.startsWith(baseUrl)) {
+        return url;
       }
-      return url.startsWith(baseUrl) ? url : baseUrl;
+
+      // If it's a relative URL starting with /, prepend baseUrl
+      if (url.startsWith('/')) {
+        return `${baseUrl}${url}`;
+      }
+
+      // Default to auth callback
+      return `${baseUrl}/auth/callback`;
     },
   },
   pages: {

@@ -19,6 +19,7 @@ export default function HomePage() {
   const [mounted, setMounted] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const router = useRouter();
 
@@ -143,18 +144,27 @@ export default function HomePage() {
             Thanks! We&apos;ll notify you when we launch.
           </p>
         ) : (
-          <form onSubmit={handleEmailSubmit} className="flex flex-col sm:flex-row gap-2 sm:gap-3 max-w-md mx-auto">
-            <input
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="flex-1 px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg bg-white/10 border border-white/20 text-white text-sm sm:text-base placeholder-white/50 focus:outline-none focus:border-brand-gold focus:ring-1 focus:ring-brand-gold"
-            />
+          <form onSubmit={handleEmailSubmit} className="flex flex-col gap-2 sm:gap-3 max-w-md mx-auto">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <input
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="flex-1 px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg bg-white/10 border border-white/20 text-white text-sm sm:text-base placeholder-white/50 focus:outline-none focus:border-brand-gold focus:ring-1 focus:ring-brand-gold"
+              />
+              <input
+                type="tel"
+                placeholder="Phone number"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="flex-1 px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg bg-white/10 border border-white/20 text-white text-sm sm:text-base placeholder-white/50 focus:outline-none focus:border-brand-gold focus:ring-1 focus:ring-brand-gold"
+              />
+            </div>
             <button
               type="submit"
-              className="px-5 py-2.5 sm:px-6 sm:py-3 bg-brand-gold text-brand-dark text-sm sm:text-base font-semibold rounded-lg hover:bg-yellow-400 transition-colors"
+              className="w-full px-5 py-2.5 sm:px-6 sm:py-3 bg-brand-gold text-brand-dark text-sm sm:text-base font-semibold rounded-lg hover:bg-yellow-400 transition-colors"
             >
               Notify Me
             </button>

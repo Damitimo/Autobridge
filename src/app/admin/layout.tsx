@@ -16,17 +16,21 @@ import {
   LogOut,
   Menu,
   X,
-  Bell
+  Bell,
+  Link2,
+  MessageSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const sidebarItems = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-  { name: 'Users & KYC', href: '/admin/users', icon: Users },
-  { name: 'Shipments', href: '/admin/shipments', icon: Ship },
+  { name: 'Bid Requests', href: '/admin/bid-requests', icon: Link2 },
   { name: 'Bids', href: '/admin/bids', icon: Gavel },
+  { name: 'Messages', href: '/admin/messages', icon: MessageSquare },
   { name: 'Payments', href: '/admin/payments', icon: CreditCard },
+  { name: 'Shipments', href: '/admin/shipments', icon: Ship },
   { name: 'Invoices', href: '/admin/invoices', icon: FileText },
+  { name: 'Users & KYC', href: '/admin/users', icon: Users },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 
@@ -143,23 +147,6 @@ export default function AdminLayout({
             <p className="text-xs text-white/60 mt-2">Admin Panel</p>
           </div>
 
-          {/* Admin Info */}
-          {admin && (
-            <div className="p-4 border-b border-white/10">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full bg-brand-gold flex items-center justify-center text-brand-dark font-semibold">
-                  {admin.firstName?.[0]}{admin.lastName?.[0]}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">
-                    {admin.firstName} {admin.lastName}
-                  </p>
-                  <p className="text-xs text-white/60 truncate">{admin.email}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
             {sidebarItems.map((item) => {
@@ -223,6 +210,19 @@ export default function AdminLayout({
                 <Bell className="h-5 w-5" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
+              {admin && (
+                <div className="flex items-center space-x-3 pl-4 border-l border-gray-200">
+                  <div className="text-right hidden sm:block">
+                    <p className="text-sm font-medium text-gray-900">
+                      {admin.firstName} {admin.lastName}
+                    </p>
+                    <p className="text-xs text-gray-500">{admin.email}</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-brand-dark flex items-center justify-center text-white font-semibold">
+                    {admin.firstName?.[0]}{admin.lastName?.[0]}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </header>

@@ -2,11 +2,13 @@
 
 import { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function AuthCallbackPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect');
 
   useEffect(() => {
     if (status === 'authenticated' && session) {
@@ -23,16 +25,35 @@ export default function AuthCallbackPage() {
         }));
       }
 
-      // Redirect based on signup fee status
-      if ((session.user as any).signupFeePaid) {
-        router.push('/dashboard');
-      } else {
-        router.push('/signup-fee');
+      // Check if this is an admin login attempt
+      if (redirectTo === 'admin') {
+        // Verify admin role via API
+        fetch('/api/admin/auth/verify-google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: session.user?.email }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.success && data.isAdmin) {
+              localStorage.setItem('adminToken', data.token);
+              router.push('/admin');
+            } else {
+              router.push('/admin/login?error=not_admin');
+            }
+          })
+          .catch(() => {
+            router.push('/admin/login?error=verification_failed');
+          });
+        return;
       }
+
+      // Always redirect to dashboard - signup fee check happens when bidding
+      router.push('/dashboard');
     } else if (status === 'unauthenticated') {
       router.push('/auth/login');
     }
-  }, [session, status, router]);
+  }, [session, status, router, redirectTo]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-brand-dark">

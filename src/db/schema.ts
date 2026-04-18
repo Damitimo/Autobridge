@@ -8,6 +8,7 @@ export const vehicleConditionEnum = pgEnum('vehicle_condition', ['running', 'non
 export const titleStatusEnum = pgEnum('title_status', ['clean', 'salvage', 'rebuilt', 'parts_only', 'unknown']);
 export const auctionSourceEnum = pgEnum('auction_source', ['copart', 'iaai']);
 export const bidStatusEnum = pgEnum('bid_status', ['pending', 'won', 'lost', 'outbid']);
+export const bidRequestStatusEnum = pgEnum('bid_request_status', ['pending', 'bid_placed', 'won', 'lost', 'rejected']);
 export const paymentStatusEnum = pgEnum('payment_status', ['pending', 'paid', 'failed', 'refunded', 'partial']);
 export const paymentMethodEnum = pgEnum('payment_method', ['bank_transfer', 'card', 'paystack', 'flutterwave', 'crypto']);
 export const shipmentStatusEnum = pgEnum('shipment_status', [
@@ -34,6 +35,7 @@ export const walletTransactionTypeEnum = pgEnum('wallet_transaction_type', [
 export const transactionStatusEnum = pgEnum('transaction_status', ['pending', 'completed', 'failed', 'reversed']);
 export const invoiceTypeEnum = pgEnum('invoice_type', ['signup_fee', 'car_purchase', 'towing', 'shipping', 'relisting_fee']);
 export const invoiceStatusEnum = pgEnum('invoice_status', ['pending', 'paid', 'overdue', 'cancelled']);
+export const conversationStatusEnum = pgEnum('conversation_status', ['open', 'closed']);
 
 // Users Table
 export const users = pgTable('users', {
@@ -164,6 +166,42 @@ export const bids = pgTable('bids', {
   // Notifications
   notificationsSent: jsonb('notifications_sent').$type<{type: string, sentAt: string}[]>().default([]),
   
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Bid Requests Table (URL submissions from users)
+export const bidRequests = pgTable('bid_requests', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull().references(() => users.id),
+
+  // Auction URL submitted by user
+  auctionLink: text('auction_link').notNull(),
+  auctionSource: auctionSourceEnum('auction_source').notNull(), // 'copart' or 'iaai'
+
+  // User's bid parameters
+  maxBidAmount: decimal('max_bid_amount', { precision: 10, scale: 2 }).notNull(),
+  notes: text('notes'),
+
+  // Status tracking
+  status: bidRequestStatusEnum('status').default('pending').notNull(),
+
+  // Admin review
+  reviewedBy: text('reviewed_by').references(() => users.id),
+  reviewedAt: timestamp('reviewed_at'),
+  adminNotes: text('admin_notes'),
+  rejectionReason: text('rejection_reason'),
+
+  // If approved and bid placed, link to the actual bid
+  bidId: text('bid_id').references(() => bids.id),
+
+  // Extracted vehicle info (populated by admin or scraper)
+  vehicleYear: integer('vehicle_year'),
+  vehicleMake: varchar('vehicle_make', { length: 100 }),
+  vehicleModel: varchar('vehicle_model', { length: 100 }),
+  vehicleVin: varchar('vehicle_vin', { length: 17 }),
+  lotNumber: varchar('lot_number', { length: 50 }),
+
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -505,6 +543,45 @@ export const shipmentDocuments = pgTable('shipment_documents', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Conversations Table (for admin-customer messaging)
+export const conversations = pgTable('conversations', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull().references(() => users.id),
+
+  subject: varchar('subject', { length: 255 }),
+  status: conversationStatusEnum('status').default('open').notNull(),
+
+  // Related entity (optional - can be linked to a bid request, shipment, etc.)
+  relatedEntityType: varchar('related_entity_type', { length: 50 }), // 'bid_request', 'shipment', 'bid', 'general'
+  relatedEntityId: text('related_entity_id'),
+
+  // Tracking
+  lastMessageAt: timestamp('last_message_at'),
+  lastMessageBy: text('last_message_by'), // 'user' or 'admin'
+  unreadByAdmin: integer('unread_by_admin').default(0).notNull(),
+  unreadByUser: integer('unread_by_user').default(0).notNull(),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Messages Table
+export const messages = pgTable('messages', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  conversationId: text('conversation_id').notNull().references(() => conversations.id),
+  senderId: text('sender_id').notNull().references(() => users.id),
+
+  content: text('content').notNull(),
+
+  // Attachments (optional)
+  attachments: jsonb('attachments').$type<{name: string, url: string, type: string}[]>(),
+
+  isRead: boolean('is_read').default(false).notNull(),
+  readAt: timestamp('read_at'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many, one }) => ({
   bids: many(bids),
@@ -592,5 +669,39 @@ export const invoicesRelations = relations(invoices, ({ one }) => ({
   shipment: one(shipments, {
     fields: [invoices.shipmentId],
     references: [shipments.id],
+  }),
+}));
+
+export const bidRequestsRelations = relations(bidRequests, ({ one }) => ({
+  user: one(users, {
+    fields: [bidRequests.userId],
+    references: [users.id],
+  }),
+  reviewer: one(users, {
+    fields: [bidRequests.reviewedBy],
+    references: [users.id],
+  }),
+  bid: one(bids, {
+    fields: [bidRequests.bidId],
+    references: [bids.id],
+  }),
+}));
+
+export const conversationsRelations = relations(conversations, ({ one, many }) => ({
+  user: one(users, {
+    fields: [conversations.userId],
+    references: [users.id],
+  }),
+  messages: many(messages),
+}));
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+  conversation: one(conversations, {
+    fields: [messages.conversationId],
+    references: [conversations.id],
+  }),
+  sender: one(users, {
+    fields: [messages.senderId],
+    references: [users.id],
   }),
 }));

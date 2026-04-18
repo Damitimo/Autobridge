@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Car, TrendingUp, Ship, Gift } from 'lucide-react';
+import { Car, TrendingUp, Ship, Gift, Plus } from 'lucide-react';
 
 interface User {
   id: string;
@@ -169,15 +169,15 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Link href="/vehicles">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Link href="/dashboard/bids/new">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer bg-brand-dark text-white">
               <CardContent className="p-6 text-center">
                 <div className="flex justify-center mb-3">
-                  <Car className="h-12 w-12 text-brand-dark" />
+                  <Plus className="h-12 w-12 text-brand-gold" />
                 </div>
-                <h3 className="font-bold mb-2">Browse Vehicles</h3>
-                <p className="text-sm text-gray-600">Find your next import</p>
+                <h3 className="font-bold mb-2">Request New Bid</h3>
+                <p className="text-sm text-white/70">Submit an auction link</p>
               </CardContent>
             </Card>
           </Link>
@@ -202,6 +202,18 @@ export default function DashboardPage() {
                 </div>
                 <h3 className="font-bold mb-2">Shipments</h3>
                 <p className="text-sm text-gray-600">Track your vehicles</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/dashboard/messages">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+              <CardContent className="p-6 text-center">
+                <div className="flex justify-center mb-3">
+                  <Car className="h-12 w-12 text-brand-dark" />
+                </div>
+                <h3 className="font-bold mb-2">Messages</h3>
+                <p className="text-sm text-gray-600">Chat with support</p>
               </CardContent>
             </Card>
           </Link>
