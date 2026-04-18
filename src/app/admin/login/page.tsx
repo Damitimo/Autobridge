@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Shield } from 'lucide-react';
 import { signIn } from 'next-auth/react';
 
-export default function AdminLoginPage() {
+function AdminLoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -163,5 +163,17 @@ export default function AdminLoginPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-brand-dark">
+        <Loader2 className="h-8 w-8 animate-spin text-brand-gold" />
+      </div>
+    }>
+      <AdminLoginContent />
+    </Suspense>
   );
 }

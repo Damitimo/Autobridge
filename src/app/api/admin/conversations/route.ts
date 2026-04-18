@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { conversations, messages, users } from '@/db/schema';
-import { eq, desc, sql, like, or, count } from 'drizzle-orm';
+import { eq, desc, sql, like, or, count, and } from 'drizzle-orm';
 import { getUserFromToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -51,15 +51,15 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .offset(offset);
 
-    // Apply filters
-    const conditions: any[] = [];
+    // Build where conditions
+    const whereConditions = [];
 
     if (status && status !== 'all') {
-      conditions.push(eq(conversations.status, status as any));
+      whereConditions.push(eq(conversations.status, status as any));
     }
 
     if (search) {
-      conditions.push(
+      whereConditions.push(
         or(
           like(users.email, `%${search}%`),
           like(users.firstName, `%${search}%`),
@@ -69,11 +69,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (conditions.length > 0) {
-      query = query.where(sql`${conditions.reduce((acc, cond, i) => i === 0 ? cond : sql`${acc} AND ${cond}`, sql`TRUE`)}`);
-    }
-
-    const convos = await query;
+    // Apply where clause if there are conditions
+    const convos = whereConditions.length > 0
+      ? await query.where(and(...whereConditions))
+      : await query;
 
     // Get total count
     const [{ count: total }] = await db
