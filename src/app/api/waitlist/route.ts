@@ -25,11 +25,17 @@ export async function POST(request: NextRequest) {
       .where(eq(waitlist.email, validated.email.toLowerCase()))
       .limit(1);
 
+    // Get total count
+    const [{ count: totalCount }] = await db
+      .select({ count: count() })
+      .from(waitlist);
+
     if (existing.length > 0) {
-      // Already on waitlist - just return success
+      // Already on waitlist - return success with count
       return NextResponse.json({
         success: true,
-        message: 'You are already on the waitlist!',
+        message: 'already_exists',
+        count: totalCount,
       });
     }
 
@@ -42,7 +48,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Successfully added to waitlist!',
+      message: 'new_signup',
+      count: totalCount + 1,
     }, { status: 201 });
 
   } catch (error) {

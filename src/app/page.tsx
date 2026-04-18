@@ -22,6 +22,7 @@ export default function HomePage() {
   const [phone, setPhone] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [alreadyExists, setAlreadyExists] = useState(false);
+  const [waitlistCount, setWaitlistCount] = useState(0);
   const router = useRouter();
 
   useEffect(() => {
@@ -73,10 +74,10 @@ export default function HomePage() {
 
         const data = await response.json();
         if (data.success) {
-          // Check if message indicates already exists
-          if (data.message?.includes('already')) {
+          if (data.message === 'already_exists') {
             setAlreadyExists(true);
           }
+          setWaitlistCount(data.count || 0);
           setSubmitted(true);
         }
       } catch (error) {
@@ -160,11 +161,18 @@ export default function HomePage() {
             Be the first to know
           </h2>
           {submitted ? (
-            <p className="text-brand-gold text-sm md:text-base">
-              {alreadyExists
-                ? "We already have your details! You'll be notified when we launch."
-                : "Thanks! We'll notify you when we launch."}
-            </p>
+            <div className="text-center">
+              <p className="text-brand-gold text-sm md:text-base font-semibold">
+                {alreadyExists
+                  ? "You're already on the list!"
+                  : `You're #${waitlistCount} on the list!`}
+              </p>
+              <p className="text-white/70 text-xs md:text-sm mt-1">
+                {alreadyExists
+                  ? "We've got your details. You'll be first to know when we launch."
+                  : `Join ${waitlistCount > 1 ? waitlistCount - 1 : ''} other${waitlistCount > 2 ? 's' : ''} waiting for a better way to import cars.`}
+              </p>
+            </div>
           ) : (
             <form onSubmit={handleEmailSubmit} className="flex flex-col md:flex-row gap-2 md:gap-3">
               <input
