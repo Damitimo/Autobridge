@@ -717,9 +717,9 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
 
       if (!auctionStatus) auctionStatus = auctionEnded ? 'Sale Ended' : 'Active';
 
-      // Year, Make, Model
+      // Year, Make, Model - use \S+ to capture make with hyphens like MERCEDES-BENZ
       let year = 0, make = '', model = '';
-      const titleParts = title.match(/(\d{4})\s+(\w+)\s+(.+)/);
+      const titleParts = title.match(/(\d{4})\s+(\S+)\s+(.+)/);
       if (titleParts) {
         year = parseInt(titleParts[1]);
         make = titleParts[2];

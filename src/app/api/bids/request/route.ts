@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validated = bidRequestSchema.parse(body);
 
-    // Check wallet balance
+    // Check wallet balance - users need funds to cover their max bid (escrow model)
     const [wallet] = await db
       .select()
       .from(wallets)
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     if (availableBalance < maxBidAmount) {
       return NextResponse.json(
         {
-          error: `Insufficient wallet balance. You need at least $${maxBidAmount.toLocaleString()} to place this bid. Your available balance is $${availableBalance.toLocaleString()}.`,
+          error: `Insufficient wallet balance. You need at least $${maxBidAmount.toLocaleString()} to place this bid. Your available balance is $${availableBalance.toLocaleString()}. Please fund your wallet first.`,
           code: 'INSUFFICIENT_BALANCE',
           required: maxBidAmount,
           available: availableBalance,

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Loader2, AlertCircle, Link2, Car, DollarSign, ExternalLink, Info, ChevronLeft, ChevronRight, X, ZoomIn } from 'lucide-react';
 import SignupFeeModal from '@/components/signup-fee-modal';
+import FundWalletModal from '@/components/fund-wallet-modal';
 
 interface VehicleDetails {
   title: string;
@@ -58,6 +59,9 @@ export default function NewBidRequestPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [autoFetching, setAutoFetching] = useState(false);
   const [showSignupFeeModal, setShowSignupFeeModal] = useState(false);
+  const [showFundWalletModal, setShowFundWalletModal] = useState(false);
+  const [fundWalletInfo, setFundWalletInfo] = useState({ required: 0, available: 0 });
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
   // Check for URL parameter and auto-fetch
   useEffect(() => {
@@ -74,6 +78,30 @@ export default function NewBidRequestPage() {
       fetchVehicleDetailsAuto();
     }
   }, [autoFetching, auctionLink]);
+
+  // Fetch wallet balance when entering details step
+  useEffect(() => {
+    if (step === 'details') {
+      fetchWalletBalance();
+    }
+  }, [step]);
+
+  const fetchWalletBalance = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/wallet/balance', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setWalletBalance(data.data.available || 0);
+      }
+    } catch (err) {
+      console.error('Failed to fetch balance:', err);
+    }
+  };
 
   const isValidUrl = (url: string) => {
     const lower = url.toLowerCase();
@@ -184,6 +212,13 @@ export default function NewBidRequestPage() {
         // Check if it's a signup fee error
         if (response.status === 403 && data.error?.includes('signup fee')) {
           setShowSignupFeeModal(true);
+        } else if (data.code === 'INSUFFICIENT_BALANCE') {
+          // Show fund wallet modal instead of error
+          setFundWalletInfo({
+            required: data.required || parseFloat(maxBidAmount),
+            available: data.available || 0,
+          });
+          setShowFundWalletModal(true);
         } else {
           setError(data.error || 'Failed to submit bid request');
         }
@@ -537,6 +572,31 @@ export default function NewBidRequestPage() {
                   </Button>
                 </form>
 
+                {/* Wallet Balance Display */}
+                {walletBalance !== null && (
+                  <div className={`mt-4 p-3 rounded-lg text-sm ${
+                    maxBidAmount && walletBalance < parseFloat(maxBidAmount)
+                      ? 'bg-yellow-50 border border-yellow-200'
+                      : 'bg-green-50 border border-green-200'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Your Wallet Balance:</span>
+                      <span className={`font-bold ${
+                        maxBidAmount && walletBalance < parseFloat(maxBidAmount)
+                          ? 'text-yellow-700'
+                          : 'text-green-700'
+                      }`}>
+                        ${walletBalance.toLocaleString()}
+                      </span>
+                    </div>
+                    {maxBidAmount && walletBalance < parseFloat(maxBidAmount) && (
+                      <p className="text-xs text-yellow-600 mt-1">
+                        You&apos;ll need to fund your wallet to cover this bid amount
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <p className="text-xs text-gray-400 mt-4 text-center">
                   By submitting, you agree to our bidding terms
                 </p>
@@ -551,6 +611,65 @@ export default function NewBidRequestPage() {
           onClose={() => setShowSignupFeeModal(false)}
           onSuccess={() => {
             // Re-submit the bid now that signup fee is paid
+            const submitBid = async () => {
+              setLoading(true);
+              try {
+                const token = localStorage.getItem('token');
+                const response = await fetch('/api/bids/request', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({
+                    auctionLink,
+                    maxBidAmount: parseFloat(maxBidAmount),
+                    vehicleData: vehicleDetails ? {
+                      year: vehicleDetails.year,
+                      make: vehicleDetails.make,
+                      model: vehicleDetails.model,
+                      vin: vehicleDetails.vin,
+                      lotNumber: vehicleDetails.lotNumber,
+                      imageUrl: vehicleDetails.images?.[0] || vehicleDetails.imageUrl,
+                      location: vehicleDetails.location,
+                      damageType: vehicleDetails.damageType,
+                      currentBid: vehicleDetails.currentBid,
+                    } : undefined,
+                  }),
+                });
+                const data = await response.json();
+                if (response.ok && data.success) {
+                  setStep('success');
+                  setTimeout(() => router.push('/dashboard/bids'), 2000);
+                } else if (data.code === 'INSUFFICIENT_BALANCE') {
+                  // Show fund wallet modal
+                  setFundWalletInfo({
+                    required: data.required || parseFloat(maxBidAmount),
+                    available: data.available || 0,
+                  });
+                  setShowFundWalletModal(true);
+                } else {
+                  setError(data.error || 'Failed to submit bid request');
+                }
+              } catch (err) {
+                setError('An error occurred. Please try again.');
+              } finally {
+                setLoading(false);
+              }
+            };
+            submitBid();
+          }}
+        />
+
+        {/* Fund Wallet Modal */}
+        <FundWalletModal
+          isOpen={showFundWalletModal}
+          onClose={() => setShowFundWalletModal(false)}
+          requiredAmount={fundWalletInfo.required}
+          availableBalance={fundWalletInfo.available}
+          vehicleName={vehicleDetails ? `${vehicleDetails.year} ${vehicleDetails.make} ${vehicleDetails.model}` : undefined}
+          onSuccess={() => {
+            // Re-submit the bid now that wallet is funded
             const submitBid = async () => {
               setLoading(true);
               try {
