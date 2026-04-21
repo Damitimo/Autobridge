@@ -123,9 +123,10 @@ export default function WalletPage() {
 
       if (data.success) {
         if (fundCurrency === 'NGN' && data.publicKey) {
-          // Show Paystack in iframe
+          // Open Paystack in new window
           setPaystackUrl(data.authorizationUrl);
           setFunding(false);
+          window.open(data.authorizationUrl, '_blank');
 
           // Listen for payment completion via polling
           const checkPayment = async () => {
@@ -398,23 +399,35 @@ export default function WalletPage() {
             </Alert>
           )}
 
-          {/* Paystack Iframe */}
+          {/* Paystack opened in new window */}
           {paystackUrl && (
-            <div className="relative">
-              <iframe
-                src={paystackUrl}
-                className="w-full h-[500px] border-0 rounded-lg"
-                title="Paystack Payment"
-                allow="payment"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2"
-                onClick={() => setPaystackUrl('')}
-              >
-                ← Back to amount
-              </Button>
+            <div className="text-center py-6">
+              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Loader2 className="h-8 w-8 text-yellow-600 animate-spin" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">Complete Payment</h3>
+              <p className="text-gray-600 mb-4">
+                A new window has opened for payment. Complete the payment there.
+              </p>
+              <p className="text-sm text-gray-500 mb-4">
+                Waiting for confirmation...
+              </p>
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  onClick={() => window.open(paystackUrl, '_blank')}
+                  className="w-full"
+                >
+                  Reopen Payment Window
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPaystackUrl('')}
+                >
+                  ← Cancel and go back
+                </Button>
+              </div>
             </div>
           )}
 
