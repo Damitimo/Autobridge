@@ -180,11 +180,22 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
               val.includes('http') || val.includes('style=') || val.includes('class=')) {
             return false;
           }
+          // Reject VIN patterns - they get picked up as values for other fields
+          if (lower.startsWith('vin:') || lower.startsWith('vin ') ||
+              /^[a-hj-npr-z0-9*]{17}$/i.test(val.replace(/[:\s]/g, '')) ||
+              /vin[:\s]*[a-hj-npr-z0-9*]{10,17}/i.test(val)) {
+            return false;
+          }
+          // Reject lot number patterns
+          if (/^lot[:\s#]*\d+/i.test(val) || /^\d{6,}$/.test(val.trim())) {
+            return false;
+          }
           // Reject common UI elements
           const uiElements = ['watchlist', 'sign in', 'register', 'login', 'bid now', 'buy now',
             'add to', 'remove', 'share', 'print', 'save', 'menu', 'close', 'search', 'help',
-            'contact', 'member', 'seller', 'unknown', 'n/a', 'loading'];
-          if (uiElements.some(ui => lower === ui || lower.startsWith(ui + ' ') || lower.endsWith(' ' + ui))) {
+            'contact', 'member', 'seller', 'unknown', 'n/a', 'loading', 'run and drive',
+            'enhanced', 'stationary', 'starts', 'tow', 'engine start', 'verified'];
+          if (uiElements.some(ui => lower === ui || lower.startsWith(ui + ' ') || lower.endsWith(' ' + ui) || lower.includes(ui))) {
             return false;
           }
           return true;
