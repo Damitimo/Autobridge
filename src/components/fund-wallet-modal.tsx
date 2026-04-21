@@ -105,6 +105,12 @@ export default function FundWalletModal({
       if (data.success && data.publicKey && data.reference) {
         setLoading(false);
 
+        // Check if Paystack script is loaded
+        if (!window.PaystackPop) {
+          setError('Payment system is loading. Please try again in a moment.');
+          return;
+        }
+
         // Use Paystack inline popup
         const handler = window.PaystackPop.setup({
           key: data.publicKey,
@@ -161,6 +167,7 @@ export default function FundWalletModal({
         setLoading(false);
       }
     } catch (err) {
+      console.error('Fund wallet error:', err);
       setError('An error occurred. Please try again.');
       setLoading(false);
     }
