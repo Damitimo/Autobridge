@@ -4,12 +4,15 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Loader2, AlertCircle, Link2, Car, DollarSign, ExternalLink, Info, ChevronLeft, ChevronRight, X, ZoomIn } from 'lucide-react';
-import SignupFeeModal from '@/components/signup-fee-modal';
-import FundWalletModal from '@/components/fund-wallet-modal';
+
+// Dynamic imports for Paystack components (they use window)
+const SignupFeeModal = dynamic(() => import('@/components/signup-fee-modal'), { ssr: false });
+const FundWalletModal = dynamic(() => import('@/components/fund-wallet-modal'), { ssr: false });
 
 interface VehicleDetails {
   title: string;
