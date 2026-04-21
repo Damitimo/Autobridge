@@ -169,14 +169,22 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
       const getDetailValue = (label) => {
         const labelLower = label.toLowerCase();
 
-        // Helper to check if value looks like code/garbage
+        // Helper to check if value looks like code/garbage or UI elements
         const isValidExtractedValue = (val) => {
           if (!val || val.length > 200) return false;
+          const lower = val.toLowerCase().trim();
           // Reject if it looks like code
           if (val.includes('function') || val.includes('var ') || val.includes('const ') ||
               val.includes('{') || val.includes('}') || val.includes('document.') ||
               val.includes('window.') || val.includes('cookie') || val.includes('script') ||
               val.includes('http') || val.includes('style=') || val.includes('class=')) {
+            return false;
+          }
+          // Reject common UI elements
+          const uiElements = ['watchlist', 'sign in', 'register', 'login', 'bid now', 'buy now',
+            'add to', 'remove', 'share', 'print', 'save', 'menu', 'close', 'search', 'help',
+            'contact', 'member', 'seller', 'unknown', 'n/a', 'loading'];
+          if (uiElements.some(ui => lower === ui || lower.startsWith(ui + ' ') || lower.endsWith(' ' + ui))) {
             return false;
           }
           return true;
