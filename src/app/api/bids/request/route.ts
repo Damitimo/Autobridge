@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { bidRequests } from '@/db/schema';
+import { bidRequests, wallets } from '@/db/schema';
 import { getUserFromToken } from '@/lib/auth';
+import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 const bidRequestSchema = z.object({
@@ -57,6 +58,28 @@ export async function POST(request: NextRequest) {
     // Parse request
     const body = await request.json();
     const validated = bidRequestSchema.parse(body);
+
+    // Check wallet balance
+    const [wallet] = await db
+      .select()
+      .from(wallets)
+      .where(eq(wallets.userId, user.id))
+      .limit(1);
+
+    const availableBalance = parseFloat(wallet?.availableBalance || '0');
+    const maxBidAmount = validated.maxBidAmount;
+
+    if (availableBalance < maxBidAmount) {
+      return NextResponse.json(
+        {
+          error: `Insufficient wallet balance. You need at least $${maxBidAmount.toLocaleString()} to place this bid. Your available balance is $${availableBalance.toLocaleString()}.`,
+          code: 'INSUFFICIENT_BALANCE',
+          required: maxBidAmount,
+          available: availableBalance,
+        },
+        { status: 400 }
+      );
+    }
 
     // Validate auction link is from Copart or IAAI
     const url = validated.auctionLink.toLowerCase();
