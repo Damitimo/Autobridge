@@ -12,23 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Wallet, ArrowUpRight, ArrowDownRight, Lock, DollarSign, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
-// Paystack types
-declare global {
-  interface Window {
-    PaystackPop: {
-      setup: (options: {
-        key: string;
-        email: string;
-        amount: number;
-        currency?: string;
-        ref: string;
-        container?: string;
-        onClose: () => void;
-        callback: (response: { reference: string }) => void;
-      }) => { openIframe: () => void };
-    };
-  }
-}
+// PaystackPop type is declared globally in signup-fee-modal.tsx
 
 interface WalletBalance {
   total: number;

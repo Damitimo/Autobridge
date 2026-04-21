@@ -6,22 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-// Paystack types
-declare global {
-  interface Window {
-    PaystackPop: {
-      setup: (options: {
-        key: string;
-        email: string;
-        amount: number;
-        currency?: string;
-        ref: string;
-        onClose: () => void;
-        callback: (response: { reference: string }) => void;
-      }) => { openIframe: () => void };
-    };
-  }
-}
+// PaystackPop type is declared globally in signup-fee-modal.tsx
 
 interface FundWalletModalProps {
   isOpen: boolean;
