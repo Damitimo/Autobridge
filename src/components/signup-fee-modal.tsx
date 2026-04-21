@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, Loader2, Wallet, CheckCircle, AlertCircle, ArrowLeft, DollarSign } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Loader2, Wallet, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { usePaystackPayment } from 'react-paystack';
 
 interface SignupFeeModalProps {
   isOpen: boolean;
@@ -16,51 +15,6 @@ interface SignupFeeModalProps {
 const SIGNUP_FEE_USD = 67;
 const NGN_RATE = 1550;
 
-// Paystack payment component
-function PaystackPaymentButton({
-  config,
-  onSuccess,
-  onClose,
-  disabled,
-  loading,
-}: {
-  config: { reference: string; email: string; amount: number; publicKey: string };
-  onSuccess: (reference: string) => void;
-  onClose: () => void;
-  disabled: boolean;
-  loading: boolean;
-}) {
-  const initializePayment = usePaystackPayment(config);
-
-  const handleClick = () => {
-    initializePayment({
-      onSuccess: (response) => onSuccess(response.reference),
-      onClose: onClose,
-    });
-  };
-
-  return (
-    <Button
-      onClick={handleClick}
-      disabled={disabled || loading}
-      className="w-full bg-brand-gold hover:bg-yellow-500 text-brand-dark font-semibold"
-      size="lg"
-    >
-      {loading ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Processing...
-        </>
-      ) : (
-        <>
-          <DollarSign className="mr-2 h-4 w-4" />
-          Pay with Paystack
-        </>
-      )}
-    </Button>
-  );
-}
-
 export default function SignupFeeModal({ isOpen, onClose, onSuccess }: SignupFeeModalProps) {
   const [loading, setLoading] = useState(false);
   const [fetchingBalance, setFetchingBalance] = useState(true);
@@ -69,21 +23,24 @@ export default function SignupFeeModal({ isOpen, onClose, onSuccess }: SignupFee
   const [paid, setPaid] = useState(false);
   const [view, setView] = useState<'main' | 'fund'>('main');
   const [fundAmount, setFundAmount] = useState('');
-  const [paymentConfig, setPaymentConfig] = useState<{
-    reference: string;
-    email: string;
-    amount: number;
-    publicKey: string;
-  } | null>(null);
+  const [waitingForPayment, setWaitingForPayment] = useState(false);
+  const [paystackUrl, setPaystackUrl] = useState('');
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       fetchWalletBalance();
       setView('main');
       setPaid(false);
-      setPaymentConfig(null);
+      setWaitingForPayment(false);
+      setPaystackUrl('');
       setError('');
     }
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+    };
   }, [isOpen]);
 
   const fetchWalletBalance = async () => {
@@ -136,7 +93,7 @@ export default function SignupFeeModal({ isOpen, onClose, onSuccess }: SignupFee
     }
   };
 
-  const initializeFundWallet = async () => {
+  const handleFundWallet = async () => {
     const amount = parseFloat(fundAmount);
     if (!amount || amount <= 0) {
       setError('Please enter a valid amount');
@@ -159,54 +116,56 @@ export default function SignupFeeModal({ isOpen, onClose, onSuccess }: SignupFee
 
       const data = await response.json();
 
-      if (data.success && data.publicKey) {
-        setPaymentConfig({
-          reference: data.reference,
-          email: data.email,
-          amount: data.amount,
-          publicKey: data.publicKey,
-        });
+      if (data.success && data.authorizationUrl) {
+        setPaystackUrl(data.authorizationUrl);
+        setWaitingForPayment(true);
+        setLoading(false);
+
+        // Open Paystack in new tab
+        window.open(data.authorizationUrl, '_blank');
+
+        // Start polling for payment verification
+        pollIntervalRef.current = setInterval(async () => {
+          try {
+            const verifyRes = await fetch('/api/wallet/verify', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({ reference: data.reference }),
+            });
+
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+              if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+              }
+              setWaitingForPayment(false);
+              setPaystackUrl('');
+              await fetchWalletBalance();
+              setView('main');
+              setFundAmount('');
+            }
+          } catch (err) {
+            console.error('Verification check failed:', err);
+          }
+        }, 3000);
+
+        // Stop polling after 5 minutes
+        setTimeout(() => {
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+          }
+        }, 300000);
       } else {
         setError(data.error || 'Failed to initialize payment');
+        setLoading(false);
       }
     } catch (err) {
       setError('An error occurred. Please try again.');
-    } finally {
       setLoading(false);
     }
-  };
-
-  const handlePaymentSuccess = async (reference: string) => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const verifyRes = await fetch('/api/wallet/verify', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ reference }),
-      });
-
-      const verifyData = await verifyRes.json();
-      if (verifyData.success) {
-        await fetchWalletBalance();
-        setPaymentConfig(null);
-        setView('main');
-        setFundAmount('');
-      } else {
-        setError('Payment verification failed. Please contact support.');
-      }
-    } catch (err) {
-      setError('Failed to verify payment. Please contact support.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePaymentClose = () => {
-    setPaymentConfig(null);
   };
 
   if (!isOpen) return null;
@@ -252,60 +211,82 @@ export default function SignupFeeModal({ isOpen, onClose, onSuccess }: SignupFee
               <p className="text-green-600">You can now place bids on vehicles.</p>
             </div>
           ) : view === 'fund' ? (
-            <>
-              <button
-                onClick={() => {
-                  setView('main');
-                  setPaymentConfig(null);
-                }}
-                className="flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4"
-              >
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                Back
-              </button>
-
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm mb-4">
-                <p className="text-yellow-800">
-                  You need <strong>${shortfall.toFixed(2)}</strong> more (≈ ₦{suggestedAmount.toLocaleString()}) for the signup fee.
-                </p>
-              </div>
-
-              <div className="mb-4">
-                <Label>Amount in Naira (₦)</Label>
-                <Input
-                  type="number"
-                  placeholder={suggestedAmount.toString()}
-                  value={fundAmount}
-                  onChange={(e) => {
-                    setFundAmount(e.target.value);
-                    setPaymentConfig(null);
-                  }}
-                  className="mt-1"
-                />
-                {fundAmount && (
-                  <p className="text-sm text-gray-600 mt-1">
-                    ≈ ${(parseFloat(fundAmount) / NGN_RATE).toFixed(2)} USD
-                  </p>
-                )}
-              </div>
-
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
-                  {error}
+            waitingForPayment ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Loader2 className="h-8 w-8 text-yellow-600 animate-spin" />
                 </div>
-              )}
+                <h3 className="text-lg font-semibold mb-2">Complete Payment</h3>
+                <p className="text-gray-600 mb-4">
+                  A new tab has opened for payment. Complete the payment there.
+                </p>
+                <p className="text-sm text-gray-500 mb-4">
+                  Waiting for confirmation...
+                </p>
+                <div className="space-y-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => window.open(paystackUrl, '_blank')}
+                    className="w-full"
+                  >
+                    Reopen Payment Tab
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setWaitingForPayment(false);
+                      setPaystackUrl('');
+                      if (pollIntervalRef.current) {
+                        clearInterval(pollIntervalRef.current);
+                      }
+                    }}
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Cancel and go back
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={() => setView('main')}
+                  className="flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  Back
+                </button>
 
-              {paymentConfig ? (
-                <PaystackPaymentButton
-                  config={paymentConfig}
-                  onSuccess={handlePaymentSuccess}
-                  onClose={handlePaymentClose}
-                  disabled={!fundAmount}
-                  loading={loading}
-                />
-              ) : (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm mb-4">
+                  <p className="text-yellow-800">
+                    You need <strong>${shortfall.toFixed(2)}</strong> more (≈ ₦{suggestedAmount.toLocaleString()}) for the signup fee.
+                  </p>
+                </div>
+
+                <div className="mb-4">
+                  <Label>Amount in Naira (₦)</Label>
+                  <Input
+                    type="number"
+                    placeholder={suggestedAmount.toString()}
+                    value={fundAmount}
+                    onChange={(e) => setFundAmount(e.target.value)}
+                    className="mt-1"
+                  />
+                  {fundAmount && (
+                    <p className="text-sm text-gray-600 mt-1">
+                      ≈ ${(parseFloat(fundAmount) / NGN_RATE).toFixed(2)} USD
+                    </p>
+                  )}
+                </div>
+
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+                    {error}
+                  </div>
+                )}
+
                 <Button
-                  onClick={initializeFundWallet}
+                  onClick={handleFundWallet}
                   disabled={loading || !fundAmount}
                   className="w-full bg-brand-gold hover:bg-yellow-500 text-brand-dark font-semibold"
                   size="lg"
@@ -313,14 +294,14 @@ export default function SignupFeeModal({ isOpen, onClose, onSuccess }: SignupFee
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Initializing...
+                      Processing...
                     </>
                   ) : (
                     'Pay with Paystack'
                   )}
                 </Button>
-              )}
-            </>
+              </>
+            )
           ) : (
             <>
               {/* Fee Amount */}
