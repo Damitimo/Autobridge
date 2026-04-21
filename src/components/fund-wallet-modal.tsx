@@ -122,42 +122,43 @@ export default function FundWalletModal({
             // User closed the popup without completing payment
             setError('Payment was cancelled');
           },
-          callback: async (response) => {
+          callback: function(response: { reference: string }) {
             // Payment completed, verify it
             setLoading(true);
-            try {
-              const verifyRes = await fetch('/api/wallet/verify', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({ reference: response.reference }),
-              });
-
-              const verifyData = await verifyRes.json();
-              if (verifyData.success) {
-                const newBalance = await fetchWalletBalance();
-
-                if (newBalance >= requiredAmount) {
-                  setFunded(true);
-                  setTimeout(() => {
-                    onClose();
-                    if (onSuccess) onSuccess();
-                  }, 1500);
+            fetch('/api/wallet/verify', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({ reference: response.reference }),
+            })
+              .then(res => res.json())
+              .then(verifyData => {
+                if (verifyData.success) {
+                  fetchWalletBalance().then(newBalance => {
+                    if (newBalance >= requiredAmount) {
+                      setFunded(true);
+                      setTimeout(() => {
+                        onClose();
+                        if (onSuccess) onSuccess();
+                      }, 1500);
+                    } else {
+                      // Need more funds
+                      setFundAmount(Math.ceil((requiredAmount - newBalance) * NGN_RATE / 1000) * 1000 + '');
+                      setError('');
+                    }
+                    setLoading(false);
+                  });
                 } else {
-                  // Need more funds
-                  setFundAmount(Math.ceil((requiredAmount - newBalance) * NGN_RATE / 1000) * 1000 + '');
-                  setError('');
+                  setError('Payment verification failed. Please contact support.');
+                  setLoading(false);
                 }
-              } else {
-                setError('Payment verification failed. Please contact support.');
-              }
-            } catch (err) {
-              setError('Failed to verify payment. Please contact support.');
-            } finally {
-              setLoading(false);
-            }
+              })
+              .catch(() => {
+                setError('Failed to verify payment. Please contact support.');
+                setLoading(false);
+              });
           },
         });
 
