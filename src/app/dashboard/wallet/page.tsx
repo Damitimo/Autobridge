@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Wallet, ArrowUpRight, ArrowDownRight, Lock, DollarSign, AlertCircle, CheckCircle } from 'lucide-react';
+import { Wallet, ArrowUpRight, ArrowDownRight, Lock, DollarSign, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
 // Paystack types
