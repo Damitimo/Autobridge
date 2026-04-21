@@ -512,14 +512,6 @@ export default function NewBidRequestPage() {
                   <p className="text-3xl font-bold text-brand-dark">
                     ${vehicleDetails.currentBid.toLocaleString()}
                   </p>
-                  {vehicleDetails.buyNowPrice && (
-                    <div className="mt-3 pt-3 border-t">
-                      <p className="text-sm text-gray-500">Buy Now Price</p>
-                      <p className="text-xl font-semibold text-green-600">
-                        ${vehicleDetails.buyNowPrice.toLocaleString()}
-                      </p>
-                    </div>
-                  )}
                 </div>
 
                 {/* Bid Form */}
