@@ -64,7 +64,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           success: true,
           authorizationUrl: paystackData.data.authorization_url,
+          accessCode: paystackData.data.access_code,
           reference,
+          email: user.email,
+          amount: amountInKobo,
+          publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
         });
       } else {
         console.error('Paystack initialization failed:', paystackData);

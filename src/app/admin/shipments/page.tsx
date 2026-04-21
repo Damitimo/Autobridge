@@ -15,6 +15,11 @@ import {
   Ship,
   MapPin,
   Calendar,
+  Upload,
+  FileText,
+  Image,
+  Loader2,
+  Trash2,
 } from 'lucide-react';
 
 interface Shipment {
@@ -68,6 +73,10 @@ export default function AdminShipmentsPage() {
   const [newStatus, setNewStatus] = useState('');
   const [statusNotes, setStatusNotes] = useState('');
   const [updating, setUpdating] = useState(false);
+  const [activeTab, setActiveTab] = useState<'status' | 'documents' | 'photos'>('status');
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [photos, setPhotos] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     fetchShipments();
@@ -141,6 +150,164 @@ export default function AdminShipmentsPage() {
     } finally {
       setUpdating(false);
     }
+  };
+
+  const fetchDocumentsAndPhotos = async (shipmentId: string) => {
+    const token = localStorage.getItem('adminToken');
+
+    // Fetch documents
+    const docsResponse = await fetch(`/api/admin/shipments/${shipmentId}/documents`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    const docsData = await docsResponse.json();
+    if (docsData.success) {
+      setDocuments(docsData.documents);
+    }
+
+    // Fetch photos
+    const photosResponse = await fetch(`/api/admin/shipments/${shipmentId}/photos`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    const photosData = await photosResponse.json();
+    if (photosData.success) {
+      setPhotos(photosData.photos);
+    }
+  };
+
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedShipment || !e.target.files?.[0]) return;
+
+    const file = e.target.files[0];
+    const documentType = (document.getElementById('documentType') as HTMLSelectElement)?.value;
+
+    if (!documentType) {
+      alert('Please select a document type');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const token = localStorage.getItem('adminToken');
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('documentType', documentType);
+
+      const response = await fetch(`/api/admin/shipments/${selectedShipment.id}/documents`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setDocuments([...documents, data.document]);
+        e.target.value = '';
+      } else {
+        alert(data.error || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Document upload error:', error);
+      alert('Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedShipment || !e.target.files?.[0]) return;
+
+    const file = e.target.files[0];
+    const stage = (document.getElementById('photoStage') as HTMLSelectElement)?.value;
+    const caption = (document.getElementById('photoCaption') as HTMLInputElement)?.value;
+
+    if (!stage) {
+      alert('Please select a photo stage');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const token = localStorage.getItem('adminToken');
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('stage', stage);
+      if (caption) formData.append('caption', caption);
+
+      const response = await fetch(`/api/admin/shipments/${selectedShipment.id}/photos`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setPhotos([...photos, data.photo]);
+        e.target.value = '';
+        const captionInput = document.getElementById('photoCaption') as HTMLInputElement;
+        if (captionInput) captionInput.value = '';
+      } else {
+        alert(data.error || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Photo upload error:', error);
+      alert('Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteDocument = async (docId: string) => {
+    if (!selectedShipment || !confirm('Delete this document?')) return;
+
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`/api/admin/shipments/${selectedShipment.id}/documents/${docId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setDocuments(documents.filter(d => d.id !== docId));
+      } else {
+        alert(data.error || 'Delete failed');
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Delete failed');
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: string) => {
+    if (!selectedShipment || !confirm('Delete this photo?')) return;
+
+    try {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`/api/admin/shipments/${selectedShipment.id}/photos/${photoId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setPhotos(photos.filter(p => p.id !== photoId));
+      } else {
+        alert(data.error || 'Delete failed');
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Delete failed');
+    }
+  };
+
+  const openShipmentModal = (shipment: Shipment) => {
+    setSelectedShipment(shipment);
+    setNewStatus(shipment.status);
+    setActiveTab('status');
+    setDocuments([]);
+    setPhotos([]);
+    setShowModal(true);
+    fetchDocumentsAndPhotos(shipment.id);
   };
 
   const getStatusBadge = (status: string) => {
@@ -267,11 +434,7 @@ export default function AdminShipmentsPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => {
-                                setSelectedShipment(shipment);
-                                setNewStatus(shipment.status);
-                                setShowModal(true);
-                              }}
+                              onClick={() => openShipmentModal(shipment)}
                             >
                               <Eye className="h-4 w-4 mr-1" /> Update
                             </Button>
@@ -337,63 +500,236 @@ export default function AdminShipmentsPage() {
                 </button>
               </div>
 
-              <div className="space-y-4">
-                {/* Vehicle Info */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Ship className="h-5 w-5 text-brand-dark" />
-                    <span className="font-semibold">
-                      {selectedShipment.vehicleYear} {selectedShipment.vehicleMake} {selectedShipment.vehicleModel}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 font-mono">{selectedShipment.vehicleVin}</p>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Customer: {selectedShipment.userFirstName} {selectedShipment.userLastName}
-                  </p>
+              {/* Vehicle Info */}
+              <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Ship className="h-5 w-5 text-brand-dark" />
+                  <span className="font-semibold">
+                    {selectedShipment.vehicleYear} {selectedShipment.vehicleMake} {selectedShipment.vehicleModel}
+                  </span>
                 </div>
-
-                {/* Current Status */}
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Current Status</p>
-                  {getStatusBadge(selectedShipment.status)}
-                </div>
-
-                {/* New Status */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">Update Status To</label>
-                  <select
-                    value={newStatus}
-                    onChange={(e) => setNewStatus(e.target.value)}
-                    className="w-full border rounded-md px-3 py-2"
-                  >
-                    {SHIPMENT_STATUSES.map((status) => (
-                      <option key={status} value={status}>
-                        {status.replace(/_/g, ' ')}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Notes */}
-                <div>
-                  <label className="block text-sm font-medium mb-1">Notes (optional)</label>
-                  <textarea
-                    className="w-full border rounded-md p-2 text-sm"
-                    rows={3}
-                    placeholder="Add notes about this status update..."
-                    value={statusNotes}
-                    onChange={(e) => setStatusNotes(e.target.value)}
-                  />
-                </div>
-
-                <Button
-                  className="w-full"
-                  onClick={handleStatusUpdate}
-                  disabled={updating || newStatus === selectedShipment.status}
-                >
-                  {updating ? 'Updating...' : 'Update Status'}
-                </Button>
+                <p className="text-sm text-gray-600 font-mono">{selectedShipment.vehicleVin}</p>
+                <p className="text-sm text-gray-600 mt-1">
+                  Customer: {selectedShipment.userFirstName} {selectedShipment.userLastName}
+                </p>
               </div>
+
+              {/* Tabs */}
+              <div className="flex border-b mb-4">
+                <button
+                  className={`px-4 py-2 text-sm font-medium ${activeTab === 'status' ? 'border-b-2 border-brand-dark text-brand-dark' : 'text-gray-500'}`}
+                  onClick={() => setActiveTab('status')}
+                >
+                  Status
+                </button>
+                <button
+                  className={`px-4 py-2 text-sm font-medium ${activeTab === 'documents' ? 'border-b-2 border-brand-dark text-brand-dark' : 'text-gray-500'}`}
+                  onClick={() => setActiveTab('documents')}
+                >
+                  Documents ({documents.length})
+                </button>
+                <button
+                  className={`px-4 py-2 text-sm font-medium ${activeTab === 'photos' ? 'border-b-2 border-brand-dark text-brand-dark' : 'text-gray-500'}`}
+                  onClick={() => setActiveTab('photos')}
+                >
+                  Photos ({photos.length})
+                </button>
+              </div>
+
+              {/* Status Tab */}
+              {activeTab === 'status' && (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-gray-500 mb-1">Current Status</p>
+                    {getStatusBadge(selectedShipment.status)}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Update Status To</label>
+                    <select
+                      value={newStatus}
+                      onChange={(e) => setNewStatus(e.target.value)}
+                      className="w-full border rounded-md px-3 py-2"
+                    >
+                      {SHIPMENT_STATUSES.map((status) => (
+                        <option key={status} value={status}>
+                          {status.replace(/_/g, ' ')}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Notes (optional)</label>
+                    <textarea
+                      className="w-full border rounded-md p-2 text-sm"
+                      rows={3}
+                      placeholder="Add notes about this status update..."
+                      value={statusNotes}
+                      onChange={(e) => setStatusNotes(e.target.value)}
+                    />
+                  </div>
+
+                  <Button
+                    className="w-full"
+                    onClick={handleStatusUpdate}
+                    disabled={updating || newStatus === selectedShipment.status}
+                  >
+                    {updating ? 'Updating...' : 'Update Status'}
+                  </Button>
+                </div>
+              )}
+
+              {/* Documents Tab */}
+              {activeTab === 'documents' && (
+                <div className="space-y-4">
+                  {/* Upload Form */}
+                  <div className="border rounded-lg p-4 bg-gray-50">
+                    <h4 className="font-medium mb-3 flex items-center gap-2">
+                      <FileText className="h-4 w-4" /> Upload Document
+                    </h4>
+                    <div className="space-y-3">
+                      <select id="documentType" className="w-full border rounded-md px-3 py-2 text-sm">
+                        <option value="">Select document type...</option>
+                        <option value="bill_of_lading">Bill of Lading</option>
+                        <option value="title">Title</option>
+                        <option value="customs_declaration">Customs Declaration</option>
+                        <option value="shipping_invoice">Shipping Invoice</option>
+                        <option value="inspection_report">Inspection Report</option>
+                        <option value="other">Other</option>
+                      </select>
+                      <div className="flex gap-2">
+                        <Input
+                          type="file"
+                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                          onChange={handleDocumentUpload}
+                          disabled={uploading}
+                          className="text-sm"
+                        />
+                      </div>
+                      {uploading && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Loader2 className="h-4 w-4 animate-spin" /> Uploading...
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Documents List */}
+                  <div className="space-y-2">
+                    {documents.length === 0 ? (
+                      <p className="text-sm text-gray-500 text-center py-4">No documents uploaded yet</p>
+                    ) : (
+                      documents.map((doc) => (
+                        <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <FileText className="h-5 w-5 text-gray-500" />
+                            <div>
+                              <p className="text-sm font-medium">{doc.fileName}</p>
+                              <p className="text-xs text-gray-500 capitalize">{doc.documentType.replace(/_/g, ' ')}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={doc.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-blue-600 hover:underline"
+                            >
+                              View
+                            </a>
+                            <button
+                              onClick={() => handleDeleteDocument(doc.id)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Photos Tab */}
+              {activeTab === 'photos' && (
+                <div className="space-y-4">
+                  {/* Upload Form */}
+                  <div className="border rounded-lg p-4 bg-gray-50">
+                    <h4 className="font-medium mb-3 flex items-center gap-2">
+                      <Image className="h-4 w-4" /> Upload Photo
+                    </h4>
+                    <div className="space-y-3">
+                      <select id="photoStage" className="w-full border rounded-md px-3 py-2 text-sm">
+                        <option value="">Select photo stage...</option>
+                        <option value="auction">Auction Photos</option>
+                        <option value="pickup">Pickup Photos</option>
+                        <option value="us_port">US Port Photos</option>
+                        <option value="loading">Loading Photos</option>
+                        <option value="vessel">On Vessel</option>
+                        <option value="nigeria_port">Nigeria Port</option>
+                        <option value="delivery">Delivery Photos</option>
+                      </select>
+                      <Input
+                        id="photoCaption"
+                        type="text"
+                        placeholder="Caption (optional)"
+                        className="text-sm"
+                      />
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoUpload}
+                        disabled={uploading}
+                        className="text-sm"
+                      />
+                      {uploading && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Loader2 className="h-4 w-4 animate-spin" /> Uploading...
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Photos Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {photos.length === 0 ? (
+                      <p className="col-span-2 text-sm text-gray-500 text-center py-4">No photos uploaded yet</p>
+                    ) : (
+                      photos.map((photo) => (
+                        <div key={photo.id} className="relative group border rounded-lg overflow-hidden">
+                          <img
+                            src={photo.fileUrl}
+                            alt={photo.caption || 'Shipment photo'}
+                            className="w-full h-32 object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                            <a
+                              href={photo.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="bg-white text-gray-800 px-2 py-1 rounded text-xs"
+                            >
+                              View
+                            </a>
+                            <button
+                              onClick={() => handleDeletePhoto(photo.id)}
+                              className="bg-red-500 text-white px-2 py-1 rounded text-xs"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                          <div className="p-2">
+                            <p className="text-xs text-gray-500 capitalize">{photo.stage.replace(/_/g, ' ')}</p>
+                            {photo.caption && <p className="text-xs truncate">{photo.caption}</p>}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

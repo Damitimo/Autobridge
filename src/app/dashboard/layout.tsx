@@ -19,6 +19,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import NotificationDropdown from '@/components/notification-dropdown';
 
 const sidebarItems = [
   {
@@ -27,14 +28,14 @@ const sidebarItems = [
     icon: LayoutDashboard,
   },
   {
-    name: 'My Wallet',
-    href: '/dashboard/wallet',
-    icon: Wallet,
-  },
-  {
     name: 'My Bids',
     href: '/dashboard/bids',
     icon: ShoppingCart,
+  },
+  {
+    name: 'Shipments',
+    href: '/dashboard/shipments',
+    icon: Ship,
   },
   {
     name: 'Messages',
@@ -42,9 +43,9 @@ const sidebarItems = [
     icon: MessageSquare,
   },
   {
-    name: 'Shipments',
-    href: '/dashboard/shipments',
-    icon: Ship,
+    name: 'My Wallet',
+    href: '/dashboard/wallet',
+    icon: Wallet,
   },
   {
     name: 'Notifications',
@@ -69,10 +70,37 @@ export default function DashboardLayout({
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [balanceCurrency, setBalanceCurrency] = useState<'USD' | 'NGN'>('USD');
+  const NGN_RATE = 1550;
 
   useEffect(() => {
     checkAuth();
   }, [session, status]);
+
+  useEffect(() => {
+    if (user) {
+      fetchWalletBalance();
+    }
+  }, [user]);
+
+  const fetchWalletBalance = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch('/api/wallet/balance', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setWalletBalance(data.data.available);
+      }
+    } catch (error) {
+      console.error('Failed to fetch wallet balance:', error);
+    }
+  };
 
   const checkAuth = async () => {
     // Wait for session to load
@@ -254,22 +282,47 @@ export default function DashboardLayout({
             {/* Right side - User info */}
             <div className="flex items-center space-x-4">
               {/* Wallet Balance */}
-              <Link
-                href="/dashboard/wallet"
-                className="hidden sm:flex items-center space-x-2 px-3 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                <Wallet className="h-4 w-4 text-brand-dark" />
-                <span className="text-sm font-medium text-gray-700">Wallet</span>
-              </Link>
+              <div className="hidden sm:flex items-stretch h-9">
+                <Link
+                  href="/dashboard/wallet"
+                  className="flex items-center space-x-2 px-3 bg-green-50 border border-green-200 rounded-l-lg hover:bg-green-100 transition-colors"
+                >
+                  <Wallet className="h-4 w-4 text-green-600" />
+                  <span className="text-sm font-semibold text-green-700">
+                    {walletBalance !== null
+                      ? balanceCurrency === 'USD'
+                        ? `$${walletBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : `₦${(walletBalance * NGN_RATE).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+                      : '...'
+                    }
+                  </span>
+                </Link>
+                <div className="flex border border-green-200 border-l-0 rounded-r-lg overflow-hidden">
+                  <button
+                    onClick={() => setBalanceCurrency('NGN')}
+                    className={`px-2 text-xs font-semibold transition-colors ${
+                      balanceCurrency === 'NGN'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-green-50 text-green-700 hover:bg-green-100'
+                    }`}
+                  >
+                    ₦
+                  </button>
+                  <button
+                    onClick={() => setBalanceCurrency('USD')}
+                    className={`px-2 text-xs font-semibold transition-colors ${
+                      balanceCurrency === 'USD'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-green-50 text-green-700 hover:bg-green-100'
+                    }`}
+                  >
+                    $
+                  </button>
+                </div>
+              </div>
 
               {/* Notifications */}
-              <Link
-                href="/dashboard/notifications"
-                className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <Bell className="h-5 w-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </Link>
+              <NotificationDropdown />
 
               {/* User Avatar Dropdown */}
               {user && (

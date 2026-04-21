@@ -8,6 +8,18 @@ const bidRequestSchema = z.object({
   auctionLink: z.string().url(),
   maxBidAmount: z.number().positive(),
   notes: z.string().optional(),
+  // Vehicle data from scraper
+  vehicleData: z.object({
+    year: z.number().optional(),
+    make: z.string().optional(),
+    model: z.string().optional(),
+    vin: z.string().optional(),
+    lotNumber: z.string().optional(),
+    imageUrl: z.string().optional(),
+    location: z.string().optional(),
+    damageType: z.string().optional(),
+    currentBid: z.number().optional(),
+  }).optional(),
 });
 
 export const dynamic = 'force-dynamic';
@@ -58,7 +70,8 @@ export async function POST(request: NextRequest) {
     // Determine auction source
     const auctionSource = url.includes('copart.com') ? 'copart' : 'iaai';
 
-    // Store the bid request in the database
+    // Store the bid request in the database with vehicle data
+    const vehicleData = validated.vehicleData;
     const [newRequest] = await db.insert(bidRequests).values({
       userId: user.id,
       auctionLink: validated.auctionLink,
@@ -66,6 +79,16 @@ export async function POST(request: NextRequest) {
       maxBidAmount: validated.maxBidAmount.toString(),
       notes: validated.notes || null,
       status: 'pending',
+      // Vehicle info from scraper
+      vehicleYear: vehicleData?.year || null,
+      vehicleMake: vehicleData?.make || null,
+      vehicleModel: vehicleData?.model || null,
+      vehicleVin: vehicleData?.vin || null,
+      lotNumber: vehicleData?.lotNumber || null,
+      vehicleImageUrl: vehicleData?.imageUrl || null,
+      vehicleLocation: vehicleData?.location || null,
+      vehicleDamageType: vehicleData?.damageType || null,
+      currentBid: vehicleData?.currentBid?.toString() || null,
     }).returning();
 
     return NextResponse.json({

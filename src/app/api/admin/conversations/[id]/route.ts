@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { conversations, messages, users } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { getUserFromToken } from '@/lib/auth';
+import { sendNotification, NotificationTemplates } from '@/lib/notifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -147,6 +148,21 @@ export async function POST(
         updatedAt: new Date(),
       })
       .where(eq(conversations.id, params.id));
+
+    // Send email notification to user
+    const template = NotificationTemplates.newMessageFromAdmin(
+      conversation.subject || 'AutoBridge Support',
+      content.trim()
+    );
+    sendNotification({
+      userId: conversation.userId,
+      type: template.type,
+      title: template.title,
+      message: template.message,
+      channels: ['email', 'in_app'],
+      relatedEntityType: 'conversation',
+      relatedEntityId: params.id,
+    }).catch(console.error);
 
     return NextResponse.json({
       success: true,

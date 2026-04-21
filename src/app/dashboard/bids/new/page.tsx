@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Loader2, AlertCircle, Link2, Car, DollarSign, ExternalLink, Info, ChevronLeft, ChevronRight, X, ZoomIn } from 'lucide-react';
+import SignupFeeModal from '@/components/signup-fee-modal';
 
 interface VehicleDetails {
   title: string;
@@ -22,16 +23,31 @@ interface VehicleDetails {
   images?: string[];
   location: string;
   damageType: string;
+  secondaryDamage?: string;
   odometer: string;
   auctionDate: string;
+  auctionDateTime?: string;
   auctionStatus?: string;
   auctionEnded?: boolean;
   dataLimited?: boolean;
   message?: string;
+  // Additional fields from scraper
+  titleStatus?: string;
+  engineType?: string;
+  transmission?: string;
+  driveType?: string;
+  fuelType?: string;
+  color?: string;
+  bodyStyle?: string;
+  hasKeys?: boolean;
+  seller?: string;
+  isInsurance?: boolean;
+  saleType?: string;
 }
 
 export default function NewBidRequestPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<'link' | 'details' | 'success'>('link');
   const [auctionLink, setAuctionLink] = useState('');
   const [vehicleDetails, setVehicleDetails] = useState<VehicleDetails | null>(null);
@@ -40,10 +56,59 @@ export default function NewBidRequestPage() {
   const [error, setError] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [autoFetching, setAutoFetching] = useState(false);
+  const [showSignupFeeModal, setShowSignupFeeModal] = useState(false);
+
+  // Check for URL parameter and auto-fetch
+  useEffect(() => {
+    const urlParam = searchParams.get('url');
+    if (urlParam && !auctionLink && !autoFetching) {
+      setAuctionLink(urlParam);
+      setAutoFetching(true);
+    }
+  }, [searchParams, auctionLink, autoFetching]);
+
+  // Auto-fetch when URL is set from params
+  useEffect(() => {
+    if (autoFetching && auctionLink && isValidUrl(auctionLink) && !vehicleDetails && !loading) {
+      fetchVehicleDetailsAuto();
+    }
+  }, [autoFetching, auctionLink]);
 
   const isValidUrl = (url: string) => {
     const lower = url.toLowerCase();
     return lower.includes('copart.com') || lower.includes('iaai.com');
+  };
+
+  const fetchVehicleDetailsAuto = async () => {
+    setError('');
+    setLoading(true);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/vehicles/lookup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ auctionLink }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setVehicleDetails(data.vehicle);
+        setCurrentImageIndex(0);
+        setStep('details');
+      } else {
+        setError(data.error || 'Failed to fetch vehicle details');
+      }
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchVehicleDetails = async (e: React.FormEvent) => {
@@ -94,6 +159,17 @@ export default function NewBidRequestPage() {
         body: JSON.stringify({
           auctionLink,
           maxBidAmount: parseFloat(maxBidAmount),
+          vehicleData: vehicleDetails ? {
+            year: vehicleDetails.year,
+            make: vehicleDetails.make,
+            model: vehicleDetails.model,
+            vin: vehicleDetails.vin,
+            lotNumber: vehicleDetails.lotNumber,
+            imageUrl: vehicleDetails.images?.[0] || vehicleDetails.imageUrl,
+            location: vehicleDetails.location,
+            damageType: vehicleDetails.damageType,
+            currentBid: vehicleDetails.currentBid,
+          } : undefined,
         }),
       });
 
@@ -105,7 +181,12 @@ export default function NewBidRequestPage() {
           router.push('/dashboard/bids');
         }, 2000);
       } else {
-        setError(data.error || 'Failed to submit bid request');
+        // Check if it's a signup fee error
+        if (response.status === 403 && data.error?.includes('signup fee')) {
+          setShowSignupFeeModal(true);
+        } else {
+          setError(data.error || 'Failed to submit bid request');
+        }
       }
     } catch (err) {
       setError('An error occurred. Please try again.');
@@ -182,31 +263,38 @@ export default function NewBidRequestPage() {
                   {vehicleDetails.images && vehicleDetails.images.length > 0 ? (
                     <div className="relative">
                       {/* Main Image */}
-                      <div
-                        className="relative h-[300px] rounded-lg overflow-hidden cursor-pointer group"
-                        onClick={() => setLightboxOpen(true)}
-                      >
+                      <div className="relative h-[300px] rounded-lg overflow-hidden group">
                         <Image
                           src={vehicleDetails.images[currentImageIndex]}
                           alt={`${vehicleDetails.title} - Image ${currentImageIndex + 1}`}
                           fill
                           className="object-cover"
                         />
-                        {/* Zoom hint */}
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                          <ZoomIn className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </div>
+                        {/* Zoom button - top right */}
+                        <button
+                          onClick={() => setLightboxOpen(true)}
+                          className="absolute top-3 right-3 bg-black/60 hover:bg-black/80 text-white p-2 rounded-lg transition-colors z-10"
+                          title="View full size"
+                        >
+                          <ZoomIn className="h-5 w-5" />
+                        </button>
                         {/* Navigation Arrows */}
                         {vehicleDetails.images.length > 1 && (
                           <>
                             <button
-                              onClick={() => setCurrentImageIndex(prev => prev === 0 ? vehicleDetails.images!.length - 1 : prev - 1)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCurrentImageIndex(prev => prev === 0 ? vehicleDetails.images!.length - 1 : prev - 1);
+                              }}
                               className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
                             >
                               <ChevronLeft className="h-5 w-5" />
                             </button>
                             <button
-                              onClick={() => setCurrentImageIndex(prev => prev === vehicleDetails.images!.length - 1 ? 0 : prev + 1)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCurrentImageIndex(prev => prev === vehicleDetails.images!.length - 1 ? 0 : prev + 1);
+                              }}
                               className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
                             >
                               <ChevronRight className="h-5 w-5" />
@@ -272,30 +360,93 @@ export default function NewBidRequestPage() {
                 </div>
 
                 {/* Vehicle Details Grid */}
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
                   <div className="bg-gray-50 rounded-lg p-3">
-                    <span className="text-gray-500 block">Lot Number</span>
+                    <span className="text-gray-500 block text-xs">Lot Number</span>
                     <span className="font-semibold">{vehicleDetails.lotNumber}</span>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <span className="text-gray-500 block">VIN</span>
-                    <span className="font-semibold">{vehicleDetails.vin || 'See listing'}</span>
+                  <div className="bg-gray-50 rounded-lg p-3 col-span-2">
+                    <span className="text-gray-500 block text-xs">VIN</span>
+                    <span className="font-semibold font-mono text-xs">{vehicleDetails.vin || 'See listing'}</span>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-3">
-                    <span className="text-gray-500 block">Damage Type</span>
-                    <span className="font-semibold">{vehicleDetails.damageType}</span>
+                    <span className="text-gray-500 block text-xs">Primary Damage</span>
+                    <span className="font-semibold">{vehicleDetails.damageType || 'N/A'}</span>
+                  </div>
+                  {vehicleDetails.secondaryDamage && (
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <span className="text-gray-500 block text-xs">Secondary Damage</span>
+                      <span className="font-semibold">{vehicleDetails.secondaryDamage}</span>
+                    </div>
+                  )}
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <span className="text-gray-500 block text-xs">Odometer</span>
+                    <span className="font-semibold">{vehicleDetails.odometer || 'N/A'}</span>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-3">
-                    <span className="text-gray-500 block">Odometer</span>
-                    <span className="font-semibold">{vehicleDetails.odometer}</span>
+                    <span className="text-gray-500 block text-xs">Title/Doc Type</span>
+                    <span className="font-semibold">{vehicleDetails.titleStatus || 'N/A'}</span>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-3">
-                    <span className="text-gray-500 block">Location</span>
-                    <span className="font-semibold">{vehicleDetails.location}</span>
+                    <span className="text-gray-500 block text-xs">Location</span>
+                    <span className="font-semibold">{vehicleDetails.location || 'N/A'}</span>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-3">
-                    <span className="text-gray-500 block">Auction Date</span>
-                    <span className="font-semibold">{vehicleDetails.auctionDate}</span>
+                    <span className="text-gray-500 block text-xs">Auction Date</span>
+                    <span className="font-semibold">{vehicleDetails.auctionDate || 'N/A'}</span>
+                  </div>
+                  {vehicleDetails.seller && (
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <span className="text-gray-500 block text-xs">Seller</span>
+                      <span className="font-semibold flex items-center gap-1">
+                        {vehicleDetails.seller}
+                        {vehicleDetails.isInsurance && (
+                          <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Insurance</span>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                  {vehicleDetails.engineType && (
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <span className="text-gray-500 block text-xs">Engine</span>
+                      <span className="font-semibold">{vehicleDetails.engineType}</span>
+                    </div>
+                  )}
+                  {vehicleDetails.transmission && (
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <span className="text-gray-500 block text-xs">Transmission</span>
+                      <span className="font-semibold">{vehicleDetails.transmission}</span>
+                    </div>
+                  )}
+                  {vehicleDetails.driveType && (
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <span className="text-gray-500 block text-xs">Drive Type</span>
+                      <span className="font-semibold">{vehicleDetails.driveType}</span>
+                    </div>
+                  )}
+                  {vehicleDetails.fuelType && (
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <span className="text-gray-500 block text-xs">Fuel Type</span>
+                      <span className="font-semibold">{vehicleDetails.fuelType}</span>
+                    </div>
+                  )}
+                  {vehicleDetails.color && (
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <span className="text-gray-500 block text-xs">Color</span>
+                      <span className="font-semibold">{vehicleDetails.color}</span>
+                    </div>
+                  )}
+                  {vehicleDetails.bodyStyle && (
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <span className="text-gray-500 block text-xs">Body Style</span>
+                      <span className="font-semibold">{vehicleDetails.bodyStyle}</span>
+                    </div>
+                  )}
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <span className="text-gray-500 block text-xs">Keys</span>
+                    <span className={`font-semibold ${vehicleDetails.hasKeys ? 'text-green-600' : 'text-gray-600'}`}>
+                      {vehicleDetails.hasKeys ? 'Yes' : 'Unknown'}
+                    </span>
                   </div>
                 </div>
               </CardContent>
@@ -393,6 +544,55 @@ export default function NewBidRequestPage() {
             </Card>
           </div>
         </div>
+
+        {/* Signup Fee Modal */}
+        <SignupFeeModal
+          isOpen={showSignupFeeModal}
+          onClose={() => setShowSignupFeeModal(false)}
+          onSuccess={() => {
+            // Re-submit the bid now that signup fee is paid
+            const submitBid = async () => {
+              setLoading(true);
+              try {
+                const token = localStorage.getItem('token');
+                const response = await fetch('/api/bids/request', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({
+                    auctionLink,
+                    maxBidAmount: parseFloat(maxBidAmount),
+                    vehicleData: vehicleDetails ? {
+                      year: vehicleDetails.year,
+                      make: vehicleDetails.make,
+                      model: vehicleDetails.model,
+                      vin: vehicleDetails.vin,
+                      lotNumber: vehicleDetails.lotNumber,
+                      imageUrl: vehicleDetails.images?.[0] || vehicleDetails.imageUrl,
+                      location: vehicleDetails.location,
+                      damageType: vehicleDetails.damageType,
+                      currentBid: vehicleDetails.currentBid,
+                    } : undefined,
+                  }),
+                });
+                const data = await response.json();
+                if (response.ok && data.success) {
+                  setStep('success');
+                  setTimeout(() => router.push('/dashboard/bids'), 2000);
+                } else {
+                  setError(data.error || 'Failed to submit bid request');
+                }
+              } catch (err) {
+                setError('An error occurred. Please try again.');
+              } finally {
+                setLoading(false);
+              }
+            };
+            submitBid();
+          }}
+        />
 
         {/* Lightbox Modal */}
         {lightboxOpen && vehicleDetails.images && vehicleDetails.images.length > 0 && (
@@ -540,6 +740,15 @@ export default function NewBidRequestPage() {
           </form>
         </CardContent>
       </Card>
+
+      {/* Signup Fee Modal */}
+      <SignupFeeModal
+        isOpen={showSignupFeeModal}
+        onClose={() => setShowSignupFeeModal(false)}
+        onSuccess={() => {
+          // Just close the modal - user will need to click submit again
+        }}
+      />
     </div>
   );
 }

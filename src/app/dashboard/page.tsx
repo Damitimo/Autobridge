@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Car, TrendingUp, Ship, Gift, Plus } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Car, TrendingUp, Ship, Gift, Plus, Link2, ArrowRight, Loader2, History, X, ExternalLink } from 'lucide-react';
 
 interface User {
   id: string;
@@ -40,6 +41,59 @@ export default function DashboardPage() {
     deliveredVehicles: 0,
   });
   const [recentShipments, setRecentShipments] = useState<Shipment[]>([]);
+  const [auctionUrl, setAuctionUrl] = useState('');
+  const [urlLoading, setUrlLoading] = useState(false);
+  const [urlHistory, setUrlHistory] = useState<{ url: string; title: string; date: string }[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const historyRef = useRef<HTMLDivElement>(null);
+
+  // Load URL history from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('urlHistory');
+    if (saved) {
+      setUrlHistory(JSON.parse(saved));
+    }
+  }, []);
+
+  // Close history dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (historyRef.current && !historyRef.current.contains(event.target as Node)) {
+        setShowHistory(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const saveUrlToHistory = (url: string) => {
+    const newEntry = {
+      url,
+      title: extractTitleFromUrl(url),
+      date: new Date().toISOString(),
+    };
+    const updated = [newEntry, ...urlHistory.filter(h => h.url !== url)].slice(0, 10);
+    setUrlHistory(updated);
+    localStorage.setItem('urlHistory', JSON.stringify(updated));
+  };
+
+  const extractTitleFromUrl = (url: string) => {
+    // Extract lot number and basic info from URL
+    const lotMatch = url.match(/lot\/(\d+)/);
+    const lotNumber = lotMatch ? lotMatch[1] : '';
+    if (url.includes('copart.com')) {
+      return `Copart Lot #${lotNumber}`;
+    } else if (url.includes('iaai.com')) {
+      return `IAAI Lot #${lotNumber}`;
+    }
+    return 'Auction Link';
+  };
+
+  const clearHistory = () => {
+    setUrlHistory([]);
+    localStorage.removeItem('urlHistory');
+    setShowHistory(false);
+  };
 
   useEffect(() => {
     // First check localStorage
@@ -74,14 +128,36 @@ export default function DashboardPage() {
   }, [session, status, router]);
 
   const fetchDashboardData = async () => {
-    // TODO: Fetch real data from API
-    // Mock data for now
-    setStats({
-      totalBids: 5,
-      wonBids: 3,
-      activeShipments: 2,
-      deliveredVehicles: 1,
-    });
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      // Fetch real stats from API
+      const statsResponse = await fetch('/api/dashboard/stats', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        if (statsData.success) {
+          setStats(statsData.stats);
+        }
+      }
+
+      // Fetch recent shipments
+      const shipmentsResponse = await fetch('/api/shipments?limit=5', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (shipmentsResponse.ok) {
+        const shipmentsData = await shipmentsResponse.json();
+        if (shipmentsData.success) {
+          setRecentShipments(shipmentsData.data || []);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+    }
   };
 
   if (!user) {
@@ -95,93 +171,181 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4">
+        {/* KYC Warning - Compact at top */}
+        {user.kycStatus !== 'verified' && (
+          <div className="mb-4 bg-yellow-50 border border-yellow-300 rounded-lg px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                KYC Pending
+              </Badge>
+              <span className="text-sm text-yellow-800">
+                Verify your identity to place bids
+              </span>
+            </div>
+            <Link href="/dashboard/kyc">
+              <Button size="sm" variant="outline" className="border-yellow-500 text-yellow-800 hover:bg-yellow-100">
+                Verify Now
+              </Button>
+            </Link>
+          </div>
+        )}
+
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">
-            Welcome back, {user.firstName}!
+            Welcome, {user.firstName}!
           </h1>
           <p className="text-gray-600">Manage your imports and track shipments</p>
         </div>
 
-        {/* KYC Warning */}
-        {user.kycStatus !== 'verified' && (
-          <Card className="mb-6 border-yellow-500 bg-yellow-50">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
-                      KYC Pending
-                    </Badge>
-                    <p className="font-semibold text-yellow-800">Complete KYC Verification</p>
-                  </div>
-                  <p className="text-sm text-yellow-700">
-                    You need to verify your identity before you can place bids.
-                  </p>
-                </div>
-                <Link href="/dashboard/kyc">
-                  <Button size="sm">
-                    Verify Now
-                  </Button>
-                </Link>
+        {/* Quick Bid Request */}
+        <Card className="mb-8 bg-brand-dark text-white">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Link2 className="h-5 w-5" />
+                <h3 className="text-lg font-semibold">Request a Bid</h3>
               </div>
-            </CardContent>
-          </Card>
-        )}
+              <div className="relative" ref={historyRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowHistory(!showHistory)}
+                  className="flex items-center gap-1 text-sm text-white/80 hover:text-white hover:underline"
+                >
+                  <History className="h-4 w-4" />
+                  View History
+                </button>
+
+                {/* History Dropdown */}
+                {showHistory && (
+                  <div className="absolute right-0 top-8 w-80 bg-white rounded-lg shadow-xl border z-50 overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+                      <span className="text-sm font-medium text-gray-700">Recent URLs</span>
+                      {urlHistory.length > 0 && (
+                        <button
+                          onClick={clearHistory}
+                          className="text-xs text-red-500 hover:text-red-700"
+                        >
+                          Clear All
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-64 overflow-y-auto">
+                      {urlHistory.length === 0 ? (
+                        <div className="px-4 py-6 text-center text-gray-500 text-sm">
+                          No URLs in history
+                        </div>
+                      ) : (
+                        urlHistory.map((item, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              setShowHistory(false);
+                              router.push(`/dashboard/bids/new?url=${encodeURIComponent(item.url)}`);
+                            }}
+                            className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b last:border-b-0 flex items-center justify-between group"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-800 truncate">{item.title}</p>
+                              <p className="text-xs text-gray-500 truncate">{item.url}</p>
+                            </div>
+                            <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-brand-dark flex-shrink-0 ml-2" />
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <p className="text-white/80 mb-4">
+              Paste a Copart or IAAI auction link to get started
+            </p>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (auctionUrl.trim()) {
+                  setUrlLoading(true);
+                  saveUrlToHistory(auctionUrl.trim());
+                  router.push(`/dashboard/bids/new?url=${encodeURIComponent(auctionUrl)}`);
+                }
+              }}
+              className="flex gap-3"
+            >
+              <Input
+                type="url"
+                placeholder="https://www.copart.com/lot/12345678"
+                value={auctionUrl}
+                onChange={(e) => setAuctionUrl(e.target.value)}
+                className="flex-1 bg-white text-gray-900"
+              />
+              <Button
+                type="submit"
+                size="lg"
+                className="bg-brand-gold text-brand-dark hover:bg-yellow-400"
+                disabled={!auctionUrl.trim() || urlLoading}
+              >
+                {urlLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <>
+                    Go <ArrowRight className="ml-2 h-5 w-5" />
+                  </>
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-gray-600">Total Bids</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{stats.totalBids}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-gray-600">Auctions Won</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-green-600">{stats.wonBids}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-gray-600">Active Shipments</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-brand-dark">{stats.activeShipments}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-gray-600">Delivered</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{stats.deliveredVehicles}</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Link href="/dashboard/bids/new">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer bg-brand-dark text-white">
-              <CardContent className="p-6 text-center">
-                <div className="flex justify-center mb-3">
-                  <Plus className="h-12 w-12 text-brand-gold" />
-                </div>
-                <h3 className="font-bold mb-2">Request New Bid</h3>
-                <p className="text-sm text-white/70">Submit an auction link</p>
+          <Link href="/dashboard/bids">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-gray-600">Total Bids</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{stats.totalBids}</p>
               </CardContent>
             </Card>
           </Link>
 
+          <Link href="/dashboard/bids?status=won">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-gray-600">Auctions Won</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-green-600">{stats.wonBids}</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/dashboard/shipments">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-gray-600">Active Shipments</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-brand-dark">{stats.activeShipments}</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/dashboard/shipments?status=delivered">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-gray-600">Delivered</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{stats.deliveredVehicles}</p>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Link href="/dashboard/bids">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer">
               <CardContent className="p-6 text-center">

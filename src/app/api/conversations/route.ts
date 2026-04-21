@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { conversations, messages, users } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { getUserFromToken } from '@/lib/auth';
+import { sendAdminEmail, NotificationTemplates } from '@/lib/notifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,11 +22,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user's conversation
-    let [conversation] = await db
-      .select()
-      .from(conversations)
-      .where(eq(conversations.userId, user.id));
+    // Check if a specific conversation ID is requested
+    const { searchParams } = new URL(request.url);
+    const conversationId = searchParams.get('id');
+
+    let conversation;
+
+    if (conversationId) {
+      // Fetch specific conversation
+      [conversation] = await db
+        .select()
+        .from(conversations)
+        .where(eq(conversations.id, conversationId));
+
+      // Verify user owns this conversation
+      if (conversation && conversation.userId !== user.id) {
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+      }
+    } else {
+      // Get user's general conversation (backwards compatibility)
+      [conversation] = await db
+        .select()
+        .from(conversations)
+        .where(eq(conversations.userId, user.id))
+        .orderBy(desc(conversations.updatedAt));
+    }
 
     // If no conversation exists, create one
     if (!conversation) {
@@ -33,7 +54,7 @@ export async function GET(request: NextRequest) {
         .insert(conversations)
         .values({
           userId: user.id,
-          subject: `Conversation with ${user.firstName} ${user.lastName}`,
+          subject: 'General Inquiry',
           status: 'open',
           relatedEntityType: 'general',
         })
@@ -101,24 +122,42 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { content, attachments } = body;
+    const { content, attachments, conversationId } = body;
 
     if (!content || !content.trim()) {
       return NextResponse.json({ success: false, error: 'Message content is required' }, { status: 400 });
     }
 
-    // Get or create user's conversation
-    let [conversation] = await db
-      .select()
-      .from(conversations)
-      .where(eq(conversations.userId, user.id));
+    let conversation;
+
+    if (conversationId) {
+      // Use specific conversation
+      [conversation] = await db
+        .select()
+        .from(conversations)
+        .where(eq(conversations.id, conversationId));
+
+      // Verify user owns this conversation
+      if (conversation && conversation.userId !== user.id) {
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 403 });
+      }
+    }
+
+    // Get or create user's general conversation if no specific one
+    if (!conversation) {
+      [conversation] = await db
+        .select()
+        .from(conversations)
+        .where(eq(conversations.userId, user.id))
+        .orderBy(desc(conversations.updatedAt));
+    }
 
     if (!conversation) {
       [conversation] = await db
         .insert(conversations)
         .values({
           userId: user.id,
-          subject: `Conversation with ${user.firstName} ${user.lastName}`,
+          subject: 'General Inquiry',
           status: 'open',
           relatedEntityType: 'general',
         })
@@ -148,6 +187,15 @@ export async function POST(request: NextRequest) {
         status: 'open',
       })
       .where(eq(conversations.id, conversation.id));
+
+    // Send email notification to admin
+    const userName = `${user.firstName} ${user.lastName}`;
+    const template = NotificationTemplates.newMessageFromUser(
+      userName,
+      conversation.subject || 'General Inquiry',
+      content.trim()
+    );
+    sendAdminEmail(template.title, template.message).catch(console.error);
 
     return NextResponse.json({
       success: true,

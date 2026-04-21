@@ -4,7 +4,9 @@
  */
 
 import { db } from '@/db';
-import { notifications } from '@/db/schema';
+import { notifications, users } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+import { Resend } from 'resend';
 
 export type NotificationChannel = 'in_app' | 'email' | 'sms' | 'whatsapp' | 'push';
 
@@ -57,18 +59,47 @@ export async function sendNotification(payload: NotificationPayload): Promise<vo
 }
 
 async function sendEmail(payload: NotificationPayload): Promise<void> {
-  // Integration with SendGrid or AWS SES
-  console.log('Sending email:', payload);
-  
-  // In production:
-  // const sgMail = require('@sendgrid/mail');
-  // sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-  // await sgMail.send({
-  //   to: userEmail,
-  //   from: process.env.SENDGRID_FROM_EMAIL,
-  //   subject: payload.title,
-  //   html: payload.message,
-  // });
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
+  try {
+    // Get user email from database
+    const user = await db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, payload.userId))
+      .limit(1);
+
+    if (!user.length || !user[0].email) {
+      console.error('No email found for user:', payload.userId);
+      return;
+    }
+
+    const { error } = await resend.emails.send({
+      from: `AutoBridge <${process.env.RESEND_FROM_EMAIL}>`,
+      to: user[0].email,
+      subject: payload.title,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: #000; padding: 20px; text-align: center;">
+            <h1 style="color: #fff; margin: 0;">AutoBridge</h1>
+          </div>
+          <div style="padding: 30px; background: #f9f9f9;">
+            <h2 style="color: #333; margin-top: 0;">${payload.title}</h2>
+            <p style="color: #555; line-height: 1.6;">${payload.message}</p>
+          </div>
+          <div style="padding: 20px; text-align: center; color: #999; font-size: 12px;">
+            <p>© ${new Date().getFullYear()} AutoBridge. All rights reserved.</p>
+          </div>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('Failed to send email:', error);
+    }
+  } catch (error) {
+    console.error('Email sending error:', error);
+  }
 }
 
 async function sendSMS(payload: NotificationPayload): Promise<void> {
@@ -111,17 +142,122 @@ async function sendPushNotification(payload: NotificationPayload): Promise<void>
   console.log('Sending push notification:', payload);
 }
 
+/**
+ * Send an email directly to the admin
+ */
+export async function sendAdminEmail(subject: string, message: string): Promise<void> {
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const adminEmail = process.env.ADMIN_EMAIL;
+
+  if (!adminEmail) {
+    console.error('ADMIN_EMAIL not configured');
+    return;
+  }
+
+  try {
+    const { error } = await resend.emails.send({
+      from: `AutoBridge <${process.env.RESEND_FROM_EMAIL}>`,
+      to: adminEmail,
+      subject,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: #000; padding: 20px; text-align: center;">
+            <h1 style="color: #fff; margin: 0;">AutoBridge Admin</h1>
+          </div>
+          <div style="padding: 30px; background: #f9f9f9;">
+            <h2 style="color: #333; margin-top: 0;">${subject}</h2>
+            <div style="color: #555; line-height: 1.6;">${message}</div>
+          </div>
+          <div style="padding: 20px; text-align: center; color: #999; font-size: 12px;">
+            <p>© ${new Date().getFullYear()} AutoBridge Admin Notification</p>
+          </div>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('Failed to send admin email:', error);
+    }
+  } catch (error) {
+    console.error('Admin email sending error:', error);
+  }
+}
+
+/**
+ * Send email to a specific email address (for waitlist confirmations, etc.)
+ */
+export async function sendEmailToAddress(
+  to: string,
+  subject: string,
+  message: string
+): Promise<{ success: boolean; error?: string }> {
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
+  try {
+    const { error } = await resend.emails.send({
+      from: `AutoBridge <${process.env.RESEND_FROM_EMAIL}>`,
+      to,
+      subject,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: #000; padding: 20px; text-align: center;">
+            <h1 style="color: #fff; margin: 0;">AutoBridge</h1>
+          </div>
+          <div style="padding: 30px; background: #f9f9f9;">
+            <h2 style="color: #333; margin-top: 0;">${subject}</h2>
+            <div style="color: #555; line-height: 1.6;">${message}</div>
+          </div>
+          <div style="padding: 20px; text-align: center; color: #999; font-size: 12px;">
+            <p>© ${new Date().getFullYear()} AutoBridge. All rights reserved.</p>
+          </div>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('Failed to send email:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Email sending error:', error);
+    return { success: false, error: String(error) };
+  }
+}
+
 // Predefined notification templates
 export const NotificationTemplates = {
+  // Email verification code
+  emailVerification: (code: string, firstName: string) => ({
+    title: 'Verify Your Email - AutoBridge',
+    message: `Hi ${firstName},<br><br>Welcome to AutoBridge! Please use the code below to verify your email address:<br><br><div style="background: #f3f4f6; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;"><span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #000;">${code}</span></div><br>This code expires in 15 minutes.<br><br>If you didn't create an account with AutoBridge, please ignore this email.<br><br>Best regards,<br>The AutoBridge Team`,
+    type: 'email_verification',
+  }),
+
+  // Welcome email for new users (sent after verification)
+  welcome: (firstName: string) => ({
+    title: 'Welcome to AutoBridge!',
+    message: `Hi ${firstName},<br><br>Your email has been verified! Welcome to AutoBridge.<br><br>You're now ready to explore thousands of vehicles from U.S. auctions. Browse our inventory, calculate landed costs, and when you're ready to bid, we'll guide you through the process.<br><br>If you have any questions, just reply to this email.<br><br>Best regards,<br>The AutoBridge Team`,
+    type: 'welcome',
+  }),
+
+  // Bid placed by admin on user's behalf
+  bidPlaced: (vehicleName: string, amount: number) => ({
+    title: 'Your Bid Has Been Placed',
+    message: `Great news! Your bid of $${amount.toLocaleString()} for ${vehicleName} has been successfully placed on the auction. We'll notify you of any updates.`,
+    type: 'bid_placed',
+  }),
+
   bidWon: (vehicleName: string, amount: number) => ({
-    title: '🎉 Congratulations! You won the auction',
-    message: `You have successfully won the auction for ${vehicleName} at $${amount.toLocaleString()}. Please proceed to payment.`,
+    title: 'Congratulations! You won the auction',
+    message: `You have successfully won the auction for ${vehicleName} at $${amount.toLocaleString()}. Please proceed to payment to begin the shipping process.`,
     type: 'bid_won',
   }),
-  
+
   bidLost: (vehicleName: string) => ({
-    title: 'Auction Lost',
-    message: `Unfortunately, you did not win the auction for ${vehicleName}. Browse more vehicles to find your next opportunity.`,
+    title: 'Auction Update',
+    message: `Unfortunately, you did not win the auction for ${vehicleName}. Don't worry - browse more vehicles to find your next opportunity!`,
     type: 'bid_lost',
   }),
   
@@ -159,5 +295,33 @@ export const NotificationTemplates = {
     title: 'Payment Reminder',
     message: `You have a pending payment of ₦${amount.toLocaleString()} due by ${dueDate}. Please complete payment to avoid delays.`,
     type: 'payment_reminder',
+  }),
+
+  // Password reset
+  passwordReset: (resetLink: string) => ({
+    title: 'Reset Your Password',
+    message: `You requested to reset your password. Click the link below to set a new password:<br><br><a href="${resetLink}" style="background: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Reset Password</a><br><br>This link expires in 1 hour.<br><br>If you didn't request this, please ignore this email.`,
+    type: 'password_reset',
+  }),
+
+  // Password changed confirmation
+  passwordChanged: () => ({
+    title: 'Password Changed Successfully',
+    message: `Your password has been changed successfully. If you didn't make this change, please contact us immediately at hello@autobridge.ng.`,
+    type: 'password_changed',
+  }),
+
+  // New message notification (admin to user)
+  newMessageFromAdmin: (subject: string, messagePreview: string) => ({
+    title: `New Message: ${subject}`,
+    message: `You have a new message from AutoBridge Support:<br><br><div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 10px 0; font-style: italic;">"${messagePreview.length > 200 ? messagePreview.slice(0, 200) + '...' : messagePreview}"</div><br><a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/messages" style="background: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View Message</a>`,
+    type: 'new_message',
+  }),
+
+  // New message notification (user to admin)
+  newMessageFromUser: (userName: string, subject: string, messagePreview: string) => ({
+    title: `New Message from ${userName}`,
+    message: `${userName} sent a new message:<br><br><strong>Subject:</strong> ${subject}<br><br><div style="background: #f3f4f6; padding: 15px; border-radius: 8px; margin: 10px 0; font-style: italic;">"${messagePreview.length > 200 ? messagePreview.slice(0, 200) + '...' : messagePreview}"</div><br><a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/messages" style="background: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">View in Admin Portal</a>`,
+    type: 'new_message_admin',
   }),
 };

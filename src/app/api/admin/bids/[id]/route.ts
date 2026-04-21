@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { bids, users, vehicles, shipments } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getUserFromToken } from '@/lib/auth';
+import { sendNotification, NotificationTemplates } from '@/lib/notifications';
 
 // Get bid details
 export async function GET(
@@ -123,6 +124,35 @@ export async function PATCH(
       }
     }
 
+    // Get vehicle info for notifications
+    const [vehicle] = await db
+      .select()
+      .from(vehicles)
+      .where(eq(vehicles.id, existingBid.vehicleId))
+      .limit(1);
+
+    const vehicleName = vehicle
+      ? `${vehicle.year} ${vehicle.make} ${vehicle.model}`
+      : 'your vehicle';
+
+    // Handle status change to 'placed'
+    if (updates.status === 'placed' && existingBid.status !== 'placed') {
+      const template = NotificationTemplates.bidPlaced(
+        vehicleName,
+        parseFloat(existingBid.maxBidAmount || '0')
+      );
+
+      await sendNotification({
+        userId: existingBid.userId,
+        type: template.type,
+        title: template.title,
+        message: template.message,
+        channels: ['in_app', 'email'],
+        relatedEntityType: 'bid',
+        relatedEntityId: existingBid.id,
+      });
+    }
+
     // Handle status change to 'won'
     if (updates.status === 'won' && existingBid.status !== 'won') {
       sanitizedUpdates.wonAt = new Date();
@@ -144,7 +174,36 @@ export async function PATCH(
         })
         .returning();
 
-      // TODO: Send notification to user about won bid
+      // Send notification to user about won bid
+      const template = NotificationTemplates.bidWon(
+        vehicleName,
+        parseFloat(updates.finalBidAmount || existingBid.maxBidAmount || '0')
+      );
+
+      await sendNotification({
+        userId: existingBid.userId,
+        type: template.type,
+        title: template.title,
+        message: template.message,
+        channels: ['in_app', 'email'],
+        relatedEntityType: 'bid',
+        relatedEntityId: existingBid.id,
+      });
+    }
+
+    // Handle status change to 'lost'
+    if (updates.status === 'lost' && existingBid.status !== 'lost') {
+      const template = NotificationTemplates.bidLost(vehicleName);
+
+      await sendNotification({
+        userId: existingBid.userId,
+        type: template.type,
+        title: template.title,
+        message: template.message,
+        channels: ['in_app', 'email'],
+        relatedEntityType: 'bid',
+        relatedEntityId: existingBid.id,
+      });
     }
 
     sanitizedUpdates.updatedAt = new Date();

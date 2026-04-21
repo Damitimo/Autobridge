@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { users } from '@/db/schema';
-import { hashPassword, generateToken } from '@/lib/auth';
+import { hashPassword, generateToken, generateEmailVerificationCode, generateEmailVerificationToken } from '@/lib/auth';
 import { generateReferralCode } from '@/lib/utils';
 import { createWallet } from '@/lib/wallet';
+import { sendEmailToAddress, sendAdminEmail, NotificationTemplates } from '@/lib/notifications';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -100,23 +101,28 @@ export async function POST(request: NextRequest) {
     
     // Auto-create wallet for new user
     await createWallet(newUser.id);
-    
-    // Generate JWT token
-    const token = generateToken({
-      userId: newUser.id,
-      email: newUser.email,
-      role: newUser.role,
-    });
-    
+
+    // Generate email verification code
+    const verificationCode = generateEmailVerificationCode();
+    const verificationToken = generateEmailVerificationToken(newUser.id, verificationCode);
+
+    // Send verification email
+    const verificationTemplate = NotificationTemplates.emailVerification(verificationCode, newUser.firstName);
+    await sendEmailToAddress(
+      newUser.email,
+      verificationTemplate.title,
+      verificationTemplate.message
+    );
+
     // Remove sensitive data
     const { passwordHash: _, ...userWithoutPassword } = newUser;
-    
+
     return NextResponse.json({
       success: true,
       user: userWithoutPassword,
-      token,
-      message: 'Account created successfully! Wallet initialized.',
-      nextStep: 'Pay ₦100,000 signup fee to start bidding',
+      verificationToken,
+      message: 'Please check your email for a verification code.',
+      requiresVerification: true,
     }, { status: 201 });
     
   } catch (error) {

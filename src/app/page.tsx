@@ -17,7 +17,6 @@ const LAUNCH_DATE = new Date('2026-04-30T00:00:00');
 export default function HomePage() {
   const [timeLeft, setTimeLeft] = useState<TimeLeft>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [mounted, setMounted] = useState(false);
-  const [unlocked, setUnlocked] = useState(false);
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -27,13 +26,6 @@ export default function HomePage() {
 
   useEffect(() => {
     setMounted(true);
-
-    // Check if site is unlocked
-    const isUnlocked = localStorage.getItem('siteUnlocked') === 'true';
-    if (isUnlocked) {
-      setUnlocked(true);
-      return;
-    }
 
     const calculateTimeLeft = () => {
       const difference = LAUNCH_DATE.getTime() - new Date().getTime();
@@ -57,9 +49,7 @@ export default function HomePage() {
   }, []);
 
   const handleSecretClick = () => {
-    localStorage.setItem('siteUnlocked', 'true');
-    setUnlocked(true);
-    router.push('/home');
+    router.push('/auth/register');
   };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -96,15 +86,6 @@ export default function HomePage() {
     );
   }
 
-  // If unlocked, redirect to home
-  if (unlocked) {
-    router.push('/home');
-    return (
-      <div className="min-h-screen bg-brand-dark flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-gold"></div>
-      </div>
-    );
-  }
 
   const timeUnits = [
     { value: timeLeft.days, label: 'Days', isSecret: false },

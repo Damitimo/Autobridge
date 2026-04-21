@@ -6,7 +6,23 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/utils';
-import { MessageCircle, Mail } from 'lucide-react';
+import { MessageCircle, Mail, FileText, Image, Download, X, ChevronLeft, ChevronRight } from 'lucide-react';
+
+interface ShipmentPhoto {
+  id: string;
+  stage: string;
+  fileUrl: string;
+  caption: string | null;
+  createdAt: string;
+}
+
+interface ShipmentDocument {
+  id: string;
+  documentType: string;
+  fileName: string;
+  fileUrl: string;
+  createdAt: string;
+}
 
 interface Shipment {
   shipment: {
@@ -38,20 +54,45 @@ interface Shipment {
   };
 }
 
+const PHOTO_STAGES: Record<string, string> = {
+  auction: 'Auction Photos',
+  pickup: 'Pickup',
+  us_port: 'US Port',
+  loading: 'Loading',
+  vessel: 'On Vessel',
+  nigeria_port: 'Nigeria Port',
+  delivery: 'Delivery',
+};
+
+const DOC_TYPES: Record<string, string> = {
+  bill_of_lading: 'Bill of Lading',
+  title: 'Title',
+  customs_declaration: 'Customs Declaration',
+  shipping_invoice: 'Shipping Invoice',
+  inspection_report: 'Inspection Report',
+  other: 'Other Document',
+};
+
 export default function ShipmentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const [shipment, setShipment] = useState<Shipment | null>(null);
+  const [photos, setPhotos] = useState<ShipmentPhoto[]>([]);
+  const [documents, setDocuments] = useState<ShipmentDocument[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [activeTab, setActiveTab] = useState<'progress' | 'photos' | 'documents'>('progress');
 
   useEffect(() => {
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
     if (!token) {
       router.push('/auth/login');
       return;
     }
-    
+
     fetchShipment(token);
+    fetchMedia(token);
   }, [params.id]);
 
   const fetchShipment = async (token: string) => {
@@ -61,9 +102,9 @@ export default function ShipmentDetailPage() {
           'Authorization': `Bearer ${token}`,
         },
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
         setShipment(data.data);
       }
@@ -72,6 +113,30 @@ export default function ShipmentDetailPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchMedia = async (token: string) => {
+    try {
+      const response = await fetch(`/api/shipments/${params.id}/media`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setPhotos(data.data.photos || []);
+        setDocuments(data.data.documents || []);
+      }
+    } catch (error) {
+      console.error('Error fetching media:', error);
+    }
+  };
+
+  const openLightbox = (index: number) => {
+    setLightboxIndex(index);
+    setLightboxOpen(true);
   };
 
   if (loading) {
@@ -239,6 +304,80 @@ export default function ShipmentDetailPage() {
           </CardContent>
         </Card>
 
+        {/* Photos Section */}
+        {photos.length > 0 && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Image className="h-5 w-5" />
+                Shipment Photos ({photos.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {photos.map((photo, index) => (
+                  <div
+                    key={photo.id}
+                    className="relative group cursor-pointer rounded-lg overflow-hidden"
+                    onClick={() => openLightbox(index)}
+                  >
+                    <img
+                      src={photo.fileUrl}
+                      alt={photo.caption || 'Shipment photo'}
+                      className="w-full h-32 object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center">
+                      <span className="text-white opacity-0 group-hover:opacity-100 text-sm font-medium">View</span>
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                      <p className="text-white text-xs">{PHOTO_STAGES[photo.stage] || photo.stage}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Documents Section */}
+        {documents.length > 0 && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Documents ({documents.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {documents.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-8 w-8 text-gray-400" />
+                      <div>
+                        <p className="font-medium text-sm">{doc.fileName}</p>
+                        <p className="text-xs text-gray-500">{DOC_TYPES[doc.documentType] || doc.documentType}</p>
+                      </div>
+                    </div>
+                    <a
+                      href={doc.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-sm text-brand-dark hover:underline"
+                    >
+                      <Download className="h-4 w-4" />
+                      Download
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Support */}
         <Card className="mt-6 bg-primary-50 border-primary-200">
           <CardContent className="p-6 text-center">
@@ -259,6 +398,65 @@ export default function ShipmentDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Photo Lightbox */}
+      {lightboxOpen && photos.length > 0 && (
+        <div
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            onClick={() => setLightboxOpen(false)}
+            className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+          >
+            <X className="h-8 w-8" />
+          </button>
+
+          <div className="absolute top-4 left-4 text-white text-lg">
+            {lightboxIndex + 1} / {photos.length}
+          </div>
+
+          <div
+            className="relative w-full h-full flex items-center justify-center p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={photos[lightboxIndex].fileUrl}
+              alt={photos[lightboxIndex].caption || 'Shipment photo'}
+              className="max-w-full max-h-full object-contain"
+            />
+          </div>
+
+          {photos.length > 1 && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex(prev => prev === 0 ? photos.length - 1 : prev - 1);
+                }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full"
+              >
+                <ChevronLeft className="h-8 w-8" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex(prev => prev === photos.length - 1 ? 0 : prev + 1);
+                }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full"
+              >
+                <ChevronRight className="h-8 w-8" />
+              </button>
+            </>
+          )}
+
+          {photos[lightboxIndex].caption && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white px-4 py-2 rounded-lg">
+              {photos[lightboxIndex].caption}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

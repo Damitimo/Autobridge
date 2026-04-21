@@ -18,12 +18,15 @@ import {
   Clock,
   Plus,
   Link as LinkIcon,
-  Send
+  Send,
+  MessageSquare
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import QuickMessageModal from '@/components/quick-message-modal';
 
 interface Bid {
   bid: {
@@ -60,6 +63,16 @@ interface BidRequest {
   notes: string | null;
   status: string;
   createdAt: string;
+  // Vehicle info from scraper
+  vehicleYear: number | null;
+  vehicleMake: string | null;
+  vehicleModel: string | null;
+  vehicleVin: string | null;
+  lotNumber: string | null;
+  vehicleImageUrl: string | null;
+  vehicleLocation: string | null;
+  vehicleDamageType: string | null;
+  currentBid: string | null;
 }
 
 const CountdownTimer = ({ bidCreatedAt, onComplete }: { bidCreatedAt: string | null; onComplete: () => void }) => {
@@ -118,6 +131,7 @@ const CountdownTimer = ({ bidCreatedAt, onComplete }: { bidCreatedAt: string | n
 };
 
 export default function BidsPage() {
+  const router = useRouter();
   const [bids, setBids] = useState<Bid[]>([]);
   const [bidRequests, setBidRequests] = useState<BidRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,6 +144,10 @@ export default function BidsPage() {
   const [showShipmentModal, setShowShipmentModal] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState<any>(null);
   const [processing, setProcessing] = useState(false);
+
+  // Quick message modal state
+  const [showQuickMessageModal, setShowQuickMessageModal] = useState(false);
+  const [selectedBidRequest, setSelectedBidRequest] = useState<BidRequest | null>(null);
 
   // New bid request state
   const [showNewBidModal, setShowNewBidModal] = useState(false);
@@ -164,6 +182,30 @@ export default function BidsPage() {
       setError('Failed to load bids');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle message button click - check if conversation exists
+  const handleMessageClick = async (request: BidRequest) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/conversations/check?bidRequestId=${request.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await response.json();
+
+      if (data.exists && data.conversationId) {
+        // Navigate to existing conversation
+        router.push(`/dashboard/messages?conversation=${data.conversationId}`);
+      } else {
+        // Show quick message modal for new conversation
+        setSelectedBidRequest(request);
+        setShowQuickMessageModal(true);
+      }
+    } catch (err) {
+      // If check fails, just show the modal
+      setSelectedBidRequest(request);
+      setShowQuickMessageModal(true);
     }
   };
 
@@ -365,29 +407,63 @@ export default function BidsPage() {
               </div>
               <CardContent className="p-6">
                 <div className="flex flex-col md:flex-row gap-6">
-                  {/* Placeholder Image */}
+                  {/* Vehicle Image */}
                   <div className="w-full md:w-48 h-[150px] bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
-                    <Car className="h-12 w-12 text-gray-400" />
+                    {request.vehicleImageUrl ? (
+                      <img
+                        src={request.vehicleImageUrl}
+                        alt={`${request.vehicleYear} ${request.vehicleMake} ${request.vehicleModel}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Car className="h-12 w-12 text-gray-400" />
+                    )}
                   </div>
 
                   {/* Request Details */}
                   <div className="flex-1 space-y-3">
                     <div>
                       <h3 className="text-xl font-bold text-gray-900">
-                        Bid Request - {request.auctionSource.toUpperCase()}
+                        {request.vehicleYear && request.vehicleMake && request.vehicleModel
+                          ? `${request.vehicleYear} ${request.vehicleMake} ${request.vehicleModel}`
+                          : `Bid Request - ${request.auctionSource.toUpperCase()}`
+                        }
                       </h3>
+                      {request.lotNumber && (
+                        <p className="text-sm text-gray-500">Lot #{request.lotNumber}</p>
+                      )}
                       <p className="text-sm text-gray-600 truncate max-w-md">
                         {request.auctionLink}
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                       <div>
                         <p className="text-gray-600">Your Max Bid</p>
                         <p className="font-semibold text-lg text-brand-dark">
                           ${parseFloat(request.maxBidAmount).toLocaleString()}
                         </p>
                       </div>
+                      {request.currentBid && (
+                        <div>
+                          <p className="text-gray-600">Current Bid</p>
+                          <p className="font-semibold">
+                            ${parseFloat(request.currentBid).toLocaleString()}
+                          </p>
+                        </div>
+                      )}
+                      {request.vehicleLocation && (
+                        <div>
+                          <p className="text-gray-600">Location</p>
+                          <p className="font-semibold">{request.vehicleLocation}</p>
+                        </div>
+                      )}
+                      {request.vehicleDamageType && (
+                        <div>
+                          <p className="text-gray-600">Damage</p>
+                          <p className="font-semibold">{request.vehicleDamageType}</p>
+                        </div>
+                      )}
                       <div>
                         <p className="text-gray-600">Submitted</p>
                         <p className="font-semibold">
@@ -401,7 +477,7 @@ export default function BidsPage() {
                       </div>
                       <div>
                         <p className="text-gray-600">Status</p>
-                        <p className="font-semibold text-yellow-700">Reviewing vehicle details</p>
+                        <p className="font-semibold text-yellow-700">Awaiting Bid Placement</p>
                       </div>
                     </div>
 
@@ -412,6 +488,25 @@ export default function BidsPage() {
                         </p>
                       </div>
                     )}
+
+                    {/* Actions */}
+                    <div className="flex gap-3 pt-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex items-center gap-2"
+                        onClick={() => handleMessageClick(request)}
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                        Message
+                      </Button>
+                      <a href={request.auctionLink} target="_blank" rel="noopener noreferrer">
+                        <Button size="sm" variant="outline" className="flex items-center gap-2">
+                          <LinkIcon className="h-4 w-4" />
+                          View Listing
+                        </Button>
+                      </a>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -947,6 +1042,25 @@ export default function BidsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Quick Message Modal */}
+      <QuickMessageModal
+        isOpen={showQuickMessageModal}
+        onClose={() => {
+          setShowQuickMessageModal(false);
+          setSelectedBidRequest(null);
+        }}
+        bidRequestId={selectedBidRequest?.id || ''}
+        vehicleTitle={
+          selectedBidRequest?.vehicleYear && selectedBidRequest?.vehicleMake && selectedBidRequest?.vehicleModel
+            ? `${selectedBidRequest.vehicleYear} ${selectedBidRequest.vehicleMake} ${selectedBidRequest.vehicleModel}`
+            : undefined
+        }
+        onSuccess={(conversationId) => {
+          // Navigate to the conversation after sending
+          router.push(`/dashboard/messages?conversation=${conversationId}`);
+        }}
+      />
     </div>
   );
 }

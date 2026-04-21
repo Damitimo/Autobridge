@@ -89,15 +89,15 @@ export default function RegisterPage() {
       const data = await response.json();
 
       if (data.success) {
-        // Store token (consistent key name)
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        
-        // Redirect to dashboard or signup fee page
-        if (data.user.signupFeePaid) {
-          router.push('/dashboard');
+        if (data.requiresVerification) {
+          // Store verification token and redirect to verify page
+          sessionStorage.setItem('verificationToken', data.verificationToken);
+          router.push(`/auth/verify-email?email=${encodeURIComponent(formData.email)}`);
         } else {
-          router.push('/signup-fee');
+          // Direct login (shouldn't happen with new flow, but just in case)
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          router.push('/dashboard');
         }
       } else {
         setErrors({ submit: data.error || 'Registration failed' });
@@ -151,7 +151,7 @@ export default function RegisterPage() {
 
       {/* Right Side - Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center bg-gray-50 py-12 px-4">
-        <Card className="w-full max-w-md">
+        <Card className="w-full max-w-xl">
           <CardHeader className="text-center">
             <div className="lg:hidden flex justify-center mb-4">
               <Link href="/">
@@ -213,46 +213,50 @@ export default function RegisterPage() {
                 />
               </div>
 
-              <FormInput
-                label="Email"
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                error={errors.email}
-                required
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormInput
+                  label="Email"
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  error={errors.email}
+                  required
+                />
 
-              <FormInput
-                label="Phone Number"
-                type="tel"
-                name="phone"
-                placeholder="+234 800 000 0000"
-                value={formData.phone}
-                onChange={handleChange}
-                error={errors.phone}
-                required
-              />
+                <FormInput
+                  label="Phone Number"
+                  type="tel"
+                  name="phone"
+                  placeholder="+234 800 000 0000"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  error={errors.phone}
+                  required
+                />
+              </div>
 
-              <FormInput
-                label="Password"
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                error={errors.password}
-                required
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormInput
+                  label="Password"
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  error={errors.password}
+                  required
+                />
 
-              <FormInput
-                label="Confirm Password"
-                type="password"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                error={errors.confirmPassword}
-                required
-              />
+                <FormInput
+                  label="Confirm Password"
+                  type="password"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  error={errors.confirmPassword}
+                  required
+                />
+              </div>
 
               <FormInput
                 label="Referral Code (Optional)"

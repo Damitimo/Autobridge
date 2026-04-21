@@ -7,7 +7,7 @@ export const kycStatusEnum = pgEnum('kyc_status', ['pending', 'verified', 'rejec
 export const vehicleConditionEnum = pgEnum('vehicle_condition', ['running', 'non_running', 'unknown']);
 export const titleStatusEnum = pgEnum('title_status', ['clean', 'salvage', 'rebuilt', 'parts_only', 'unknown']);
 export const auctionSourceEnum = pgEnum('auction_source', ['copart', 'iaai']);
-export const bidStatusEnum = pgEnum('bid_status', ['pending', 'won', 'lost', 'outbid']);
+export const bidStatusEnum = pgEnum('bid_status', ['pending', 'placed', 'won', 'lost', 'outbid']);
 export const bidRequestStatusEnum = pgEnum('bid_request_status', ['pending', 'bid_placed', 'won', 'lost', 'rejected']);
 export const paymentStatusEnum = pgEnum('payment_status', ['pending', 'paid', 'failed', 'refunded', 'partial']);
 export const paymentMethodEnum = pgEnum('payment_method', ['bank_transfer', 'card', 'paystack', 'flutterwave', 'crypto']);
@@ -201,6 +201,10 @@ export const bidRequests = pgTable('bid_requests', {
   vehicleModel: varchar('vehicle_model', { length: 100 }),
   vehicleVin: varchar('vehicle_vin', { length: 17 }),
   lotNumber: varchar('lot_number', { length: 50 }),
+  vehicleImageUrl: text('vehicle_image_url'),
+  vehicleLocation: varchar('vehicle_location', { length: 255 }),
+  vehicleDamageType: varchar('vehicle_damage_type', { length: 100 }),
+  currentBid: decimal('current_bid', { precision: 10, scale: 2 }),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

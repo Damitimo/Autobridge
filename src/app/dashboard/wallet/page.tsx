@@ -9,8 +9,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Wallet, ArrowUpRight, ArrowDownRight, Lock, DollarSign, AlertCircle } from 'lucide-react';
+import { Wallet, ArrowUpRight, ArrowDownRight, Lock, DollarSign, AlertCircle, CheckCircle } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
+
+// Paystack types
+declare global {
+  interface Window {
+    PaystackPop: {
+      setup: (options: {
+        key: string;
+        email: string;
+        amount: number;
+        currency?: string;
+        ref: string;
+        container?: string;
+        onClose: () => void;
+        callback: (response: { reference: string }) => void;
+      }) => { openIframe: () => void };
+    };
+  }
+}
 
 interface WalletBalance {
   total: number;
@@ -38,6 +56,8 @@ export default function WalletPage() {
   const [fundAmount, setFundAmount] = useState('');
   const [funding, setFunding] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [paystackUrl, setPaystackUrl] = useState('');
 
   useEffect(() => {
     fetchWalletData();
@@ -84,6 +104,7 @@ export default function WalletPage() {
     try {
       setFunding(true);
       setError('');
+      setSuccess('');
       const token = localStorage.getItem('token');
 
       const response = await fetch('/api/wallet/fund', {
@@ -101,21 +122,61 @@ export default function WalletPage() {
       const data = await response.json();
 
       if (data.success) {
-        if (fundCurrency === 'NGN' && data.authorizationUrl) {
-          // Redirect to Paystack
-          window.location.href = data.authorizationUrl;
+        if (fundCurrency === 'NGN' && data.publicKey) {
+          // Show Paystack in iframe
+          setPaystackUrl(data.authorizationUrl);
+          setFunding(false);
+
+          // Listen for payment completion via polling
+          const checkPayment = async () => {
+            const verifyRes = await fetch('/api/wallet/verify', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({ reference: data.reference }),
+            });
+
+            const verifyData = await verifyRes.json();
+
+            if (verifyData.success) {
+              setSuccess('Payment successful! Your wallet has been funded.');
+              setFundAmount('');
+              setPaystackUrl('');
+              fetchWalletData();
+              setTimeout(() => {
+                setShowFundModal(false);
+                setSuccess('');
+              }, 2000);
+              return true;
+            }
+            return false;
+          };
+
+          // Poll for payment completion every 3 seconds
+          const pollInterval = setInterval(async () => {
+            const completed = await checkPayment();
+            if (completed) {
+              clearInterval(pollInterval);
+            }
+          }, 3000);
+
+          // Stop polling after 5 minutes
+          setTimeout(() => clearInterval(pollInterval), 300000);
         } else if (fundCurrency === 'USD') {
           // Show wire transfer instructions
           alert('Wire transfer instructions:\n\n' + JSON.stringify(data.instructions, null, 2));
           setShowFundModal(false);
+          setFunding(false);
         }
       } else {
         setError(data.error || 'Failed to initiate payment');
+        setFunding(false);
       }
     } catch (error) {
       console.error('Funding error:', error);
       setError('Failed to fund wallet');
-    } finally {
       setFunding(false);
     }
   };
@@ -308,83 +369,109 @@ export default function WalletPage() {
       </div>
 
       {/* Fund Wallet Modal */}
-      <Dialog open={showFundModal} onOpenChange={setShowFundModal}>
-        <DialogContent>
+      <Dialog open={showFundModal} onOpenChange={(open) => {
+        setShowFundModal(open);
+        if (!open) {
+          setPaystackUrl('');
+          setError('');
+          setSuccess('');
+        }
+      }}>
+        <DialogContent className={paystackUrl ? "sm:max-w-lg" : "sm:max-w-md"}>
           <DialogHeader>
             <DialogTitle>Fund Wallet</DialogTitle>
             <DialogDescription>
-              Add money to your wallet to start bidding
+              {paystackUrl ? 'Complete your payment below' : 'Add money to your wallet to start bidding'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+          {success && (
+            <Alert className="bg-green-50 border-green-200">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">{success}</AlertDescription>
+            </Alert>
+          )}
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-            <div>
-              <Label>Currency</Label>
-              <Select 
-                value={fundCurrency} 
-                onValueChange={(value: 'NGN' | 'USD') => setFundCurrency(value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NGN">Nigerian Naira (₦)</SelectItem>
-                  <SelectItem value="USD">US Dollar ($)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label>Amount</Label>
-              <Input
-                type="number"
-                placeholder={fundCurrency === 'NGN' ? '₦50,000' : '$100'}
-                value={fundAmount}
-                onChange={(e) => setFundAmount(e.target.value)}
+          {/* Paystack Iframe */}
+          {paystackUrl && (
+            <div className="relative">
+              <iframe
+                src={paystackUrl}
+                className="w-full h-[500px] border-0 rounded-lg"
+                title="Paystack Payment"
+                allow="payment"
               />
-              {fundCurrency === 'NGN' && fundAmount && (
-                <p className="text-sm text-gray-600 mt-1">
-                  ≈ ${(parseFloat(fundAmount) / 1550).toFixed(2)} USD
-                </p>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => setPaystackUrl('')}
+              >
+                ← Back to amount
+              </Button>
             </div>
+          )}
 
-            <div className="bg-primary-50 p-4 rounded-lg space-y-2">
-              <p className="text-sm text-primary-900 font-medium">
-                {fundCurrency === 'NGN' ? (
-                  <>💳 You will be redirected to Paystack to complete payment securely</>
-                ) : (
-                  <>🏦 Wire transfer instructions will be provided. Funds will be credited after verification.</>
-                )}
-              </p>
-              {fundCurrency === 'NGN' && (
-                <div className="bg-white p-3 rounded border border-primary-200">
-                  <p className="text-xs font-semibold text-primary-900 mb-1">Test Card (Demo):</p>
-                  <p className="text-xs text-primary-800 font-mono">
-                    Card: 4084 0840 8408 4081<br />
-                    Expiry: 12/30 | CVV: 408<br />
-                    PIN: 0000 | OTP: 123456
+          {/* Amount Entry Form */}
+          {!paystackUrl && !success && (
+            <div className="space-y-4">
+              <div>
+                <Label>Currency</Label>
+                <Select
+                  value={fundCurrency}
+                  onValueChange={(value: 'NGN' | 'USD') => setFundCurrency(value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NGN">Nigerian Naira (₦)</SelectItem>
+                    <SelectItem value="USD">US Dollar ($)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label>Amount</Label>
+                <Input
+                  type="number"
+                  placeholder={fundCurrency === 'NGN' ? '100000' : '100'}
+                  value={fundAmount}
+                  onChange={(e) => setFundAmount(e.target.value)}
+                />
+                {fundCurrency === 'NGN' && fundAmount && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    ≈ ${(parseFloat(fundAmount) / 1550).toFixed(2)} USD
                   </p>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
 
-            <Button 
-              onClick={handleFundWallet}
-              disabled={funding}
-              className="w-full"
-              size="lg"
-            >
-              {funding ? 'Processing...' : `Fund Wallet (${fundCurrency})`}
-            </Button>
-          </div>
+              <div className="bg-primary-50 p-4 rounded-lg">
+                <p className="text-sm text-primary-900 font-medium">
+                  {fundCurrency === 'NGN' ? (
+                    <>💳 Secure payment powered by Paystack</>
+                  ) : (
+                    <>🏦 Wire transfer instructions will be provided. Funds will be credited after verification.</>
+                  )}
+                </p>
+              </div>
+
+              <Button
+                onClick={handleFundWallet}
+                disabled={funding || !fundAmount}
+                className="w-full"
+                size="lg"
+              >
+                {funding ? 'Processing...' : `Continue to Payment`}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

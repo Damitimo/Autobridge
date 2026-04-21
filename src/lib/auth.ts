@@ -54,3 +54,52 @@ export function generateOTP(length: number = 6): string {
   }
   return otp;
 }
+
+// Password reset token (expires in 1 hour)
+export function generatePasswordResetToken(userId: string, email: string): string {
+  return jwt.sign(
+    { userId, email, purpose: 'password_reset' },
+    JWT_SECRET,
+    { expiresIn: '1h' }
+  );
+}
+
+export function verifyPasswordResetToken(token: string): { userId: string; email: string } | null {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as any;
+    if (payload.purpose !== 'password_reset') {
+      return null;
+    }
+    return { userId: payload.userId, email: payload.email };
+  } catch (error) {
+    return null;
+  }
+}
+
+// Email verification code (6 digits, expires in 15 minutes)
+export function generateEmailVerificationCode(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+export function generateEmailVerificationToken(userId: string, code: string): string {
+  return jwt.sign(
+    { userId, code, purpose: 'email_verification' },
+    JWT_SECRET,
+    { expiresIn: '15m' }
+  );
+}
+
+export function verifyEmailVerificationToken(token: string, inputCode: string): { userId: string; valid: boolean } | null {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as any;
+    if (payload.purpose !== 'email_verification') {
+      return null;
+    }
+    return {
+      userId: payload.userId,
+      valid: payload.code === inputCode,
+    };
+  } catch (error) {
+    return null;
+  }
+}
