@@ -1,10 +1,27 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { X, Loader2, Wallet, CheckCircle, AlertCircle, ArrowLeft, DollarSign } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Loader2, Wallet, CheckCircle, AlertCircle, DollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+
+// Paystack types
+declare global {
+  interface Window {
+    PaystackPop: {
+      setup: (options: {
+        key: string;
+        email: string;
+        amount: number;
+        currency?: string;
+        ref: string;
+        onClose: () => void;
+        callback: (response: { reference: string }) => void;
+      }) => { openIframe: () => void };
+    };
+  }
+}
 
 interface FundWalletModalProps {
   isOpen: boolean;
@@ -30,9 +47,7 @@ export default function FundWalletModal({
   const [walletBalance, setWalletBalance] = useState(availableBalance);
   const [funded, setFunded] = useState(false);
   const [fundAmount, setFundAmount] = useState('');
-  const [waitingForPayment, setWaitingForPayment] = useState(false);
-  const [paystackUrl, setPaystackUrl] = useState('');
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [userEmail, setUserEmail] = useState('');
 
   const shortfall = Math.max(0, requiredAmount - walletBalance);
   const suggestedAmount = Math.ceil(shortfall * NGN_RATE / 1000) * 1000;
@@ -41,17 +56,26 @@ export default function FundWalletModal({
     if (isOpen) {
       setWalletBalance(availableBalance);
       setFunded(false);
-      setWaitingForPayment(false);
-      setPaystackUrl('');
       setError('');
       setFundAmount(suggestedAmount.toString());
+      fetchUserEmail();
     }
-    return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-    };
   }, [isOpen, availableBalance, suggestedAmount]);
+
+  const fetchUserEmail = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (data.user?.email) {
+        setUserEmail(data.user.email);
+      }
+    } catch (err) {
+      console.error('Failed to fetch user email:', err);
+    }
+  };
 
   const fetchWalletBalance = async () => {
     try {
@@ -93,56 +117,60 @@ export default function FundWalletModal({
 
       const data = await response.json();
 
-      if (data.success && data.authorizationUrl) {
-        setPaystackUrl(data.authorizationUrl);
-        setWaitingForPayment(true);
+      if (data.success && data.publicKey && data.reference) {
         setLoading(false);
 
-        // Open Paystack in new tab
-        window.open(data.authorizationUrl, '_blank');
+        // Use Paystack inline popup
+        const handler = window.PaystackPop.setup({
+          key: data.publicKey,
+          email: userEmail,
+          amount: amount * 100, // Paystack expects amount in kobo
+          currency: 'NGN',
+          ref: data.reference,
+          onClose: () => {
+            // User closed the popup without completing payment
+            setError('Payment was cancelled');
+          },
+          callback: async (response) => {
+            // Payment completed, verify it
+            setLoading(true);
+            try {
+              const verifyRes = await fetch('/api/wallet/verify', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({ reference: response.reference }),
+              });
 
-        // Start polling for payment verification
-        pollIntervalRef.current = setInterval(async () => {
-          try {
-            const verifyRes = await fetch('/api/wallet/verify', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              body: JSON.stringify({ reference: data.reference }),
-            });
+              const verifyData = await verifyRes.json();
+              if (verifyData.success) {
+                const newBalance = await fetchWalletBalance();
 
-            const verifyData = await verifyRes.json();
-            if (verifyData.success) {
-              if (pollIntervalRef.current) {
-                clearInterval(pollIntervalRef.current);
-              }
-              setWaitingForPayment(false);
-              setPaystackUrl('');
-              const newBalance = await fetchWalletBalance();
-
-              if (newBalance >= requiredAmount) {
-                setFunded(true);
-                setTimeout(() => {
-                  onClose();
-                  if (onSuccess) onSuccess();
-                }, 1500);
+                if (newBalance >= requiredAmount) {
+                  setFunded(true);
+                  setTimeout(() => {
+                    onClose();
+                    if (onSuccess) onSuccess();
+                  }, 1500);
+                } else {
+                  // Need more funds
+                  setFundAmount(Math.ceil((requiredAmount - newBalance) * NGN_RATE / 1000) * 1000 + '');
+                  setError('');
+                }
               } else {
-                setFundAmount(Math.ceil((requiredAmount - newBalance) * NGN_RATE / 1000) * 1000 + '');
+                setError('Payment verification failed. Please contact support.');
               }
+            } catch (err) {
+              setError('Failed to verify payment. Please contact support.');
+            } finally {
+              setLoading(false);
             }
-          } catch (err) {
-            console.error('Verification check failed:', err);
-          }
-        }, 3000);
+          },
+        });
 
-        // Stop polling after 5 minutes
-        setTimeout(() => {
-          if (pollIntervalRef.current) {
-            clearInterval(pollIntervalRef.current);
-          }
-        }, 300000);
+        handler.openIframe();
       } else {
         setError(data.error || 'Failed to initialize payment');
         setLoading(false);
@@ -186,42 +214,6 @@ export default function FundWalletModal({
               </div>
               <h3 className="text-xl font-bold text-green-800 mb-2">Wallet Funded!</h3>
               <p className="text-green-600">Submitting your bid request...</p>
-            </div>
-          ) : waitingForPayment ? (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Loader2 className="h-8 w-8 text-yellow-600 animate-spin" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Complete Payment</h3>
-              <p className="text-gray-600 mb-4">
-                A new tab has opened for payment. Complete the payment there.
-              </p>
-              <p className="text-sm text-gray-500 mb-4">
-                Waiting for confirmation...
-              </p>
-              <div className="space-y-2">
-                <Button
-                  variant="outline"
-                  onClick={() => window.open(paystackUrl, '_blank')}
-                  className="w-full"
-                >
-                  Reopen Payment Tab
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setWaitingForPayment(false);
-                    setPaystackUrl('');
-                    if (pollIntervalRef.current) {
-                      clearInterval(pollIntervalRef.current);
-                    }
-                  }}
-                >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Cancel and go back
-                </Button>
-              </div>
             </div>
           ) : (
             <>
