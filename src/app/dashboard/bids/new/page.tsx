@@ -369,14 +369,14 @@ export default function NewBidRequestPage() {
                     <span className="text-gray-500 block text-xs">VIN</span>
                     <span className="font-semibold font-mono text-xs">{vehicleDetails.vin || 'See listing'}</span>
                   </div>
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <span className="text-gray-500 block text-xs">Primary Damage</span>
-                    <span className="font-semibold">{vehicleDetails.damageType || 'N/A'}</span>
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <span className="text-red-600 block text-xs">Primary Damage</span>
+                    <span className="font-semibold text-red-700">{vehicleDetails.damageType || 'N/A'}</span>
                   </div>
                   {vehicleDetails.secondaryDamage && (
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <span className="text-gray-500 block text-xs">Secondary Damage</span>
-                      <span className="font-semibold">{vehicleDetails.secondaryDamage}</span>
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                      <span className="text-orange-600 block text-xs">Secondary Damage</span>
+                      <span className="font-semibold text-orange-700">{vehicleDetails.secondaryDamage}</span>
                     </div>
                   )}
                   <div className="bg-gray-50 rounded-lg p-3">
