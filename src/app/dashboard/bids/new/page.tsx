@@ -19,6 +19,7 @@ interface VehicleDetails {
   year: number;
   make: string;
   model: string;
+  trim?: string;
   vin: string;
   lotNumber: string;
   currentBid: number;
@@ -38,12 +39,19 @@ interface VehicleDetails {
   // Additional fields from scraper
   titleStatus?: string;
   engineType?: string;
+  engineStatus?: string;
   transmission?: string;
+  transmissionStatus?: string;
   driveType?: string;
   fuelType?: string;
   color?: string;
   bodyStyle?: string;
+  vehicleType?: string;
+  cylinders?: string;
   hasKeys?: boolean;
+  retailValue?: string;
+  highlights?: string;
+  specialtyDescription?: string;
   seller?: string;
   isInsurance?: boolean;
   saleType?: string;
@@ -384,9 +392,21 @@ export default function NewBidRequestPage() {
 
                 {/* Vehicle Title */}
                 <div className="flex items-start justify-between mb-4">
-                  <h2 className="text-2xl font-bold">
-                    {vehicleDetails.year} {vehicleDetails.make} {vehicleDetails.model}
-                  </h2>
+                  <div>
+                    <h2 className="text-2xl font-bold">
+                      {vehicleDetails.year} {vehicleDetails.make} {vehicleDetails.model}
+                      {vehicleDetails.trim && <span className="text-gray-600 font-normal"> {vehicleDetails.trim}</span>}
+                    </h2>
+                    {vehicleDetails.highlights && (
+                      <span className={`inline-block mt-1 text-sm px-2 py-0.5 rounded ${
+                        vehicleDetails.highlights.toLowerCase().includes('run and drive')
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {vehicleDetails.highlights}
+                      </span>
+                    )}
+                  </div>
                   <a
                     href={auctionLink}
                     target="_blank"
@@ -444,16 +464,32 @@ export default function NewBidRequestPage() {
                       </span>
                     </div>
                   )}
-                  {vehicleDetails.engineType && (
+                  {(vehicleDetails.engineType || vehicleDetails.engineStatus) && (
                     <div className="bg-gray-50 rounded-lg p-3">
                       <span className="text-gray-500 block text-xs">Engine</span>
-                      <span className="font-semibold">{vehicleDetails.engineType}</span>
+                      <span className="font-semibold">
+                        {vehicleDetails.engineType || ''}
+                        {vehicleDetails.engineStatus && (
+                          <span className="ml-1 text-green-600">({vehicleDetails.engineStatus})</span>
+                        )}
+                      </span>
                     </div>
                   )}
-                  {vehicleDetails.transmission && (
+                  {(vehicleDetails.transmission || vehicleDetails.transmissionStatus) && (
                     <div className="bg-gray-50 rounded-lg p-3">
                       <span className="text-gray-500 block text-xs">Transmission</span>
-                      <span className="font-semibold">{vehicleDetails.transmission}</span>
+                      <span className="font-semibold">
+                        {vehicleDetails.transmission || ''}
+                        {vehicleDetails.transmissionStatus && (
+                          <span className="ml-1 text-green-600">({vehicleDetails.transmissionStatus})</span>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                  {vehicleDetails.cylinders && (
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <span className="text-gray-500 block text-xs">Cylinders</span>
+                      <span className="font-semibold">{vehicleDetails.cylinders}</span>
                     </div>
                   )}
                   {vehicleDetails.driveType && (
@@ -486,6 +522,18 @@ export default function NewBidRequestPage() {
                       {vehicleDetails.hasKeys ? 'Yes' : 'Unknown'}
                     </span>
                   </div>
+                  {vehicleDetails.vehicleType && (
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <span className="text-gray-500 block text-xs">Vehicle Type</span>
+                      <span className="font-semibold">{vehicleDetails.vehicleType}</span>
+                    </div>
+                  )}
+                  {vehicleDetails.retailValue && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <span className="text-blue-600 block text-xs">Est. Retail Value</span>
+                      <span className="font-semibold text-blue-700">${parseInt(vehicleDetails.retailValue).toLocaleString()}</span>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
