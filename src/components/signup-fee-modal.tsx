@@ -12,8 +12,9 @@ interface SignupFeeModalProps {
   onSuccess?: () => void;
 }
 
-const SIGNUP_FEE_USD = 67;
-const NGN_RATE = 1550;
+const SIGNUP_FEE_NGN = 100000;
+const NGN_RATE = 1500; // Match backend exchange rate
+const SIGNUP_FEE_USD = Math.ceil(SIGNUP_FEE_NGN / NGN_RATE); // ~$67
 
 export default function SignupFeeModal({ isOpen, onClose, onSuccess }: SignupFeeModalProps) {
   const [loading, setLoading] = useState(false);
@@ -200,9 +201,10 @@ export default function SignupFeeModal({ isOpen, onClose, onSuccess }: SignupFee
 
   if (!isOpen) return null;
 
-  const hasEnoughBalance = walletBalance >= SIGNUP_FEE_USD;
-  const shortfall = SIGNUP_FEE_USD - walletBalance;
-  const suggestedAmount = Math.ceil(shortfall * NGN_RATE / 1000) * 1000;
+  const walletBalanceNGN = walletBalance * NGN_RATE;
+  const hasEnoughBalance = walletBalanceNGN >= SIGNUP_FEE_NGN;
+  const shortfallNGN = SIGNUP_FEE_NGN - walletBalanceNGN;
+  const suggestedAmount = Math.ceil(shortfallNGN / 1000) * 1000;
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -267,7 +269,7 @@ export default function SignupFeeModal({ isOpen, onClose, onSuccess }: SignupFee
             <>
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm mb-4">
                 <p className="text-yellow-800">
-                  You need <strong>${shortfall.toFixed(2)}</strong> more (≈ ₦{suggestedAmount.toLocaleString()}) for the signup fee.
+                  You need <strong>₦{suggestedAmount.toLocaleString()}</strong> more for the signup fee.
                 </p>
               </div>
 
@@ -313,8 +315,8 @@ export default function SignupFeeModal({ isOpen, onClose, onSuccess }: SignupFee
             <>
               {/* Fee Amount */}
               <div className="text-center mb-6">
-                <p className="text-3xl font-bold text-brand-dark mb-1">${SIGNUP_FEE_USD}</p>
-                <p className="text-gray-500 text-sm">(≈ ₦{(SIGNUP_FEE_USD * NGN_RATE).toLocaleString()})</p>
+                <p className="text-3xl font-bold text-brand-dark mb-1">₦{SIGNUP_FEE_NGN.toLocaleString()}</p>
+                <p className="text-gray-500 text-sm">(≈ ${SIGNUP_FEE_USD})</p>
               </div>
 
               {/* Wallet Balance */}
@@ -325,14 +327,14 @@ export default function SignupFeeModal({ isOpen, onClose, onSuccess }: SignupFee
                     <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
                   ) : (
                     <span className={`font-bold ${hasEnoughBalance ? 'text-green-700' : 'text-yellow-700'}`}>
-                      ${walletBalance.toFixed(2)}
+                      ₦{walletBalanceNGN.toLocaleString()}
                     </span>
                   )}
                 </div>
                 {!fetchingBalance && !hasEnoughBalance && (
                   <div className="mt-2 flex items-center gap-2 text-yellow-700 text-sm">
                     <AlertCircle className="h-4 w-4" />
-                    <span>You need ${shortfall.toFixed(2)} more</span>
+                    <span>You need ₦{suggestedAmount.toLocaleString()} more</span>
                   </div>
                 )}
               </div>
