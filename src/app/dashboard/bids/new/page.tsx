@@ -419,14 +419,6 @@ export default function NewBidRequestPage() {
                   </a>
                 </div>
 
-                {/* Auction Countdown */}
-                <div className="mb-4">
-                  <AuctionCountdown
-                    auctionDateTime={vehicleDetails.auctionDateTime}
-                    auctionDate={vehicleDetails.auctionDate}
-                  />
-                </div>
-
                 {/* Vehicle Details Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
                   <div className="bg-gray-50 rounded-lg p-3 col-span-2">
@@ -570,6 +562,14 @@ export default function NewBidRequestPage() {
                   <p className="text-3xl font-bold text-brand-dark">
                     ${vehicleDetails.currentBid.toLocaleString()}
                   </p>
+                </div>
+
+                {/* Auction Countdown */}
+                <div className="mb-4">
+                  <AuctionCountdown
+                    auctionDateTime={vehicleDetails.auctionDateTime}
+                    auctionDate={vehicleDetails.auctionDate}
+                  />
                 </div>
 
                 {/* Bid Form */}
