@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronDown, ChevronUp, Loader2, TrendingUp, Clock, Ship, AlertTriangle } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, Clock, Ship, AlertTriangle } from 'lucide-react';
 
 interface CostItem {
   category: string;
@@ -188,10 +188,7 @@ export default function CostBreakdown({
           {/* Total */}
           <div className="mt-4 pt-3 border-t-2 border-blue-300">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-blue-600" />
-                <span className="font-bold text-blue-900">Total Estimated Cost</span>
-              </div>
+              <span className="font-bold text-blue-900">Total Estimated Cost</span>
               <div className="text-right">
                 <p className="text-xl font-bold text-blue-900">${estimate.totalUSD.toLocaleString()}</p>
                 <p className="text-sm text-blue-600">₦{estimate.totalNGN.toLocaleString()}</p>
