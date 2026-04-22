@@ -557,12 +557,17 @@ export default function NewBidRequestPage() {
 
               {/* Fixed Current Bid Section */}
               <div className="px-6 pb-4 flex-shrink-0">
-                <div className="bg-gray-50 rounded-lg p-4">
+                <div className="bg-gray-50 rounded-lg p-4 mb-3">
                   <p className="text-sm text-gray-500">Current Bid</p>
                   <p className="text-3xl font-bold text-brand-dark">
                     ${vehicleDetails.currentBid.toLocaleString()}
                   </p>
                 </div>
+                {/* Auction Countdown */}
+                <AuctionCountdown
+                  auctionDateTime={vehicleDetails.auctionDateTime}
+                  auctionDate={vehicleDetails.auctionDate}
+                />
               </div>
 
               {/* Divider */}
@@ -570,14 +575,6 @@ export default function NewBidRequestPage() {
 
               {/* Scrollable Content */}
               <CardContent className="overflow-y-auto flex-1 pt-4">
-                {/* Auction Countdown */}
-                <div className="mb-4">
-                  <AuctionCountdown
-                    auctionDateTime={vehicleDetails.auctionDateTime}
-                    auctionDate={vehicleDetails.auctionDate}
-                  />
-                </div>
-
                 {/* Bid Form */}
                 <form onSubmit={handleSubmitBid} className="space-y-4">
                   {error && (
