@@ -141,6 +141,7 @@ export async function POST(request: NextRequest) {
       vehicle = scraperData.vehicle;
       console.log('Scrape complete:', vehicle.title);
       console.log('Auction date:', vehicle.auctionDate, '| DateTime:', vehicle.auctionDateTime);
+      console.log('Location:', vehicle.location);
     } else {
       return NextResponse.json(
         { error: 'IAAI lookup coming soon. Please use Copart links for now.' },
