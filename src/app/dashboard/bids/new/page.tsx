@@ -121,32 +121,6 @@ export default function NewBidRequestPage() {
     return lower.includes('copart.com') || lower.includes('iaai.com');
   };
 
-  // Calculate valid bid increment based on Copart rules
-  const getBidIncrement = (currentBid: number): number => {
-    if (currentBid < 100) return 5;
-    if (currentBid < 500) return 25;
-    if (currentBid < 1000) return 50;
-    if (currentBid < 5000) return 100;
-    if (currentBid < 25000) return 250;
-    return 500;
-  };
-
-  // Round up to nearest valid bid
-  const getNextValidBid = (currentBid: number): number => {
-    const increment = getBidIncrement(currentBid);
-    return currentBid + increment;
-  };
-
-  // Get suggested bids based on current bid
-  const getSuggestedBids = (currentBid: number): number[] => {
-    const increment = getBidIncrement(currentBid);
-    const suggested: number[] = [];
-    for (let i = 1; i <= 5; i++) {
-      suggested.push(currentBid + (increment * i));
-    }
-    return suggested;
-  };
-
   const fetchVehicleDetailsAuto = async () => {
     setError('');
     setLoading(true);
@@ -630,23 +604,6 @@ export default function NewBidRequestPage() {
                     <p className="text-xs text-gray-500 mt-1">
                       We&apos;ll bid in increments up to this maximum amount
                     </p>
-                    {/* Quick Select Suggestions */}
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {getSuggestedBids(vehicleDetails.currentBid).slice(0, 4).map((bid) => (
-                        <button
-                          key={bid}
-                          type="button"
-                          onClick={() => setMaxBidAmount(bid.toString())}
-                          className={`px-3 py-1 text-sm rounded-full border transition-colors ${
-                            maxBidAmount === bid.toString()
-                              ? 'bg-brand-dark text-white border-brand-dark'
-                              : 'bg-white text-gray-700 border-gray-300 hover:border-brand-dark'
-                          }`}
-                        >
-                          ${bid.toLocaleString()}
-                        </button>
-                      ))}
-                    </div>
                   </div>
 
                   {/* Cost Breakdown */}
