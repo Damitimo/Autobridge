@@ -134,7 +134,7 @@ export default function CostBreakdown({
           Estimated Landing Cost
           {loading && <Loader2 className="h-4 w-4 animate-spin text-blue-600" />}
         </span>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 ml-4">
           <div className="text-right">
             <p className="text-lg font-bold text-blue-900">${estimate.totalUSD.toLocaleString()}</p>
             <p className="text-xs text-blue-600">₦{estimate.totalNGN.toLocaleString()}</p>
