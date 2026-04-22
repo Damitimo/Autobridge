@@ -61,6 +61,9 @@ export async function POST(request: NextRequest) {
       console.log('Paystack initialization response:', JSON.stringify(paystackData, null, 2));
 
       if (paystackData.status) {
+        const publicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || process.env.PAYSTACK_PUBLIC_KEY;
+        console.log('Paystack public key present:', !!publicKey, 'Length:', publicKey?.length);
+
         return NextResponse.json({
           success: true,
           authorizationUrl: paystackData.data.authorization_url,
@@ -68,7 +71,7 @@ export async function POST(request: NextRequest) {
           reference,
           email: user.email,
           amount: amountInKobo,
-          publicKey: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
+          publicKey,
         });
       } else {
         console.error('Paystack initialization failed:', paystackData);
