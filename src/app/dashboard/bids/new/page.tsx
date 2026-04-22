@@ -548,8 +548,19 @@ export default function NewBidRequestPage() {
           {/* Right Side - Bid Form */}
           <div className="lg:col-span-1">
             <Card className="sticky top-24">
-              <CardHeader>
-                <CardTitle>Place Your Bid</CardTitle>
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <CardTitle>Place Your Bid</CardTitle>
+                  {vehicleDetails.auctionStatus && vehicleDetails.auctionStatus !== 'Unknown' && (
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      vehicleDetails.auctionEnded
+                        ? 'bg-red-100 text-red-700'
+                        : 'bg-green-100 text-green-700'
+                    }`}>
+                      {vehicleDetails.auctionEnded ? 'Ended' : vehicleDetails.auctionStatus}
+                    </span>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
 
