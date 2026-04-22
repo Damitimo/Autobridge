@@ -539,8 +539,8 @@ export default function NewBidRequestPage() {
 
           {/* Right Side - Bid Form */}
           <div className="lg:col-span-1">
-            <Card className="sticky top-24">
-              <CardHeader className="pb-2">
+            <Card className="sticky top-24 flex flex-col max-h-[calc(100vh-120px)]">
+              <CardHeader className="pb-2 flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <CardTitle>Place Your Bid</CardTitle>
                   {vehicleDetails.auctionStatus && vehicleDetails.auctionStatus !== 'Unknown' && (
@@ -554,16 +554,22 @@ export default function NewBidRequestPage() {
                   )}
                 </div>
               </CardHeader>
-              <CardContent>
 
-                {/* Current Bid */}
-                <div className="bg-gray-50 rounded-lg p-4 mb-4">
+              {/* Fixed Current Bid Section */}
+              <div className="px-6 pb-4 flex-shrink-0">
+                <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-sm text-gray-500">Current Bid</p>
                   <p className="text-3xl font-bold text-brand-dark">
                     ${vehicleDetails.currentBid.toLocaleString()}
                   </p>
                 </div>
+              </div>
 
+              {/* Divider */}
+              <div className="border-t border-gray-200 flex-shrink-0" />
+
+              {/* Scrollable Content */}
+              <CardContent className="overflow-y-auto flex-1 pt-4">
                 {/* Auction Countdown */}
                 <div className="mb-4">
                   <AuctionCountdown
