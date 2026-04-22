@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Loader2, AlertCircle, Link2, Car, DollarSign, ExternalLink, Info, ChevronLeft, ChevronRight, X, ZoomIn } from 'lucide-react';
 import CostBreakdown from '@/components/cost-breakdown';
+import AuctionCountdown from '@/components/auction-countdown';
 
 // Dynamic imports for Paystack components (they use window)
 const SignupFeeModal = dynamic(() => import('@/components/signup-fee-modal'), { ssr: false });
@@ -585,11 +586,19 @@ export default function NewBidRequestPage() {
                 )}
 
                 {/* Current Bid */}
-                <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <div className="bg-gray-50 rounded-lg p-4 mb-4">
                   <p className="text-sm text-gray-500">Current Bid</p>
                   <p className="text-3xl font-bold text-brand-dark">
                     ${vehicleDetails.currentBid.toLocaleString()}
                   </p>
+                </div>
+
+                {/* Auction Countdown */}
+                <div className="mb-6">
+                  <AuctionCountdown
+                    auctionDateTime={vehicleDetails.auctionDateTime}
+                    auctionDate={vehicleDetails.auctionDate}
+                  />
                 </div>
 
                 {/* Bid Form */}
