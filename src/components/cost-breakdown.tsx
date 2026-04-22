@@ -40,7 +40,7 @@ export default function CostBreakdown({
 }: CostBreakdownProps) {
   const [estimate, setEstimate] = useState<CostEstimate | null>(null);
   const [loading, setLoading] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [error, setError] = useState('');
 
   const fetchEstimate = useCallback(async () => {

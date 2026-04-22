@@ -606,17 +606,15 @@ export default function NewBidRequestPage() {
                     </p>
                   </div>
 
-                  {/* Cost Breakdown */}
-                  {maxBidAmount && parseFloat(maxBidAmount) > 0 && (
-                    <CostBreakdown
-                      vehiclePrice={parseFloat(maxBidAmount)}
-                      auctionSource={auctionLink.toLowerCase().includes('iaai') ? 'iaai' : 'copart'}
-                      location={vehicleDetails.location}
-                      vehicleYear={vehicleDetails.year}
-                      hasKeys={vehicleDetails.hasKeys}
-                      isRunning={vehicleDetails.highlights?.toLowerCase().includes('run') ?? true}
-                    />
-                  )}
+                  {/* Cost Breakdown - shows with current bid by default, updates with max bid */}
+                  <CostBreakdown
+                    vehiclePrice={maxBidAmount && parseFloat(maxBidAmount) > 0 ? parseFloat(maxBidAmount) : vehicleDetails.currentBid}
+                    auctionSource={auctionLink.toLowerCase().includes('iaai') ? 'iaai' : 'copart'}
+                    location={vehicleDetails.location}
+                    vehicleYear={vehicleDetails.year}
+                    hasKeys={vehicleDetails.hasKeys}
+                    isRunning={vehicleDetails.highlights?.toLowerCase().includes('run') ?? true}
+                  />
 
                   <Button
                     type="submit"
