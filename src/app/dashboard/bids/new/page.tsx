@@ -421,6 +421,10 @@ export default function NewBidRequestPage() {
 
                 {/* Vehicle Details Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <span className="text-gray-500 block text-xs">Lot Number</span>
+                    <span className="font-semibold">{vehicleDetails.lotNumber}</span>
+                  </div>
                   <div className="bg-gray-50 rounded-lg p-3 col-span-2">
                     <span className="text-gray-500 block text-xs">VIN</span>
                     <span className="font-semibold font-mono text-xs">{vehicleDetails.vin || 'See listing'}</span>
