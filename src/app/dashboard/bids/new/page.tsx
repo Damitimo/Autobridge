@@ -421,10 +421,6 @@ export default function NewBidRequestPage() {
 
                 {/* Vehicle Details Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <span className="text-gray-500 block text-xs">Lot Number</span>
-                    <span className="font-semibold">{vehicleDetails.lotNumber}</span>
-                  </div>
                   <div className="bg-gray-50 rounded-lg p-3 col-span-2">
                     <span className="text-gray-500 block text-xs">VIN</span>
                     <span className="font-semibold font-mono text-xs">{vehicleDetails.vin || 'See listing'}</span>
@@ -544,19 +540,8 @@ export default function NewBidRequestPage() {
           {/* Right Side - Bid Form */}
           <div className="lg:col-span-1">
             <Card className="sticky top-24">
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <CardTitle>Place Your Bid</CardTitle>
-                  {vehicleDetails.auctionStatus && vehicleDetails.auctionStatus !== 'Unknown' && (
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      vehicleDetails.auctionEnded
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-green-100 text-green-700'
-                    }`}>
-                      {vehicleDetails.auctionEnded ? 'Ended' : vehicleDetails.auctionStatus}
-                    </span>
-                  )}
-                </div>
+              <CardHeader>
+                <CardTitle>Place Your Bid</CardTitle>
               </CardHeader>
               <CardContent>
 
