@@ -11,8 +11,8 @@ interface TimeLeft {
   seconds: number;
 }
 
-// Launch date: April 30th, 2026 (13 days remaining)
-const LAUNCH_DATE = new Date('2026-04-30T00:00:00');
+// Launch date: May 10th, 2026
+const LAUNCH_DATE = new Date('2026-05-10T00:00:00');
 
 export default function HomePage() {
   const [timeLeft, setTimeLeft] = useState<TimeLeft>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
