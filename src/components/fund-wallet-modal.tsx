@@ -1,27 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, Loader2, Wallet, CheckCircle, AlertCircle, DollarSign } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Loader2, Wallet, CheckCircle, AlertCircle, DollarSign, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-
-// Paystack types
-declare global {
-  interface Window {
-    PaystackPop: {
-      setup: (options: {
-        key: string;
-        email: string;
-        amount: number;
-        currency?: string;
-        ref: string;
-        onClose: () => void;
-        callback: (response: { reference: string }) => void;
-      }) => { openIframe: () => void };
-    };
-  }
-}
 
 interface FundWalletModalProps {
   isOpen: boolean;
@@ -48,6 +31,10 @@ export default function FundWalletModal({
   const [funded, setFunded] = useState(false);
   const [fundAmount, setFundAmount] = useState('');
   const [userEmail, setUserEmail] = useState('');
+  const [view, setView] = useState<'form' | 'paystack' | 'verifying' | 'success'>('form');
+  const [paystackUrl, setPaystackUrl] = useState('');
+  const [paymentReference, setPaymentReference] = useState('');
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   const shortfall = Math.max(0, requiredAmount - walletBalance);
   const suggestedAmount = Math.ceil(shortfall * NGN_RATE / 1000) * 1000;
@@ -58,8 +45,16 @@ export default function FundWalletModal({
       setFunded(false);
       setError('');
       setFundAmount(suggestedAmount.toString());
+      setView('form');
+      setPaystackUrl('');
+      setPaymentReference('');
       fetchUserEmail();
     }
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
+    };
   }, [isOpen, availableBalance, suggestedAmount]);
 
   const fetchUserEmail = async () => {
@@ -94,6 +89,51 @@ export default function FundWalletModal({
     return walletBalance;
   };
 
+  const verifyPayment = async (reference: string): Promise<boolean> => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/wallet/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reference }),
+      });
+      const data = await response.json();
+      return data.success === true;
+    } catch (err) {
+      return false;
+    }
+  };
+
+  const startPolling = (reference: string) => {
+    // Poll every 3 seconds to check if payment was completed
+    pollingRef.current = setInterval(async () => {
+      const success = await verifyPayment(reference);
+      if (success) {
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+        }
+        setView('verifying');
+        const newBalance = await fetchWalletBalance();
+        if (newBalance >= requiredAmount) {
+          setView('success');
+          setFunded(true);
+          setTimeout(() => {
+            onClose();
+            if (onSuccess) onSuccess();
+          }, 1500);
+        } else {
+          // Need more funds
+          setFundAmount(Math.ceil((requiredAmount - newBalance) * NGN_RATE / 1000) * 1000 + '');
+          setView('form');
+          setError('');
+        }
+      }
+    }, 3000);
+  };
+
   const handleFundWallet = async () => {
     const amount = parseFloat(fundAmount);
     if (!amount || amount <= 0) {
@@ -117,112 +157,99 @@ export default function FundWalletModal({
 
       const data = await response.json();
 
-      if (data.success && data.publicKey && data.reference) {
-        setLoading(false);
-
-        // Check if Paystack script is loaded
-        if (!window.PaystackPop) {
-          setError('Payment system is loading. Please try again in a moment.');
-          return;
-        }
-
-        // Use Paystack inline popup
-        const handler = window.PaystackPop.setup({
-          key: data.publicKey,
-          email: userEmail,
-          amount: amount * 100, // Paystack expects amount in kobo
-          currency: 'NGN',
-          ref: data.reference,
-          onClose: function() {
-            // User closed the popup without completing payment
-            setError('Payment was cancelled');
-          },
-          callback: function(response: { reference: string }) {
-            // Payment completed, verify it
-            setLoading(true);
-            fetch('/api/wallet/verify', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              body: JSON.stringify({ reference: response.reference }),
-            })
-              .then(res => res.json())
-              .then(verifyData => {
-                if (verifyData.success) {
-                  fetchWalletBalance().then(newBalance => {
-                    if (newBalance >= requiredAmount) {
-                      setFunded(true);
-                      setTimeout(() => {
-                        onClose();
-                        if (onSuccess) onSuccess();
-                      }, 1500);
-                    } else {
-                      // Need more funds
-                      setFundAmount(Math.ceil((requiredAmount - newBalance) * NGN_RATE / 1000) * 1000 + '');
-                      setError('');
-                    }
-                    setLoading(false);
-                  });
-                } else {
-                  setError('Payment verification failed. Please contact support.');
-                  setLoading(false);
-                }
-              })
-              .catch(() => {
-                setError('Failed to verify payment. Please contact support.');
-                setLoading(false);
-              });
-          },
-        });
-
-        handler.openIframe();
+      if (data.success && data.authorizationUrl && data.reference) {
+        setPaystackUrl(data.authorizationUrl);
+        setPaymentReference(data.reference);
+        setView('paystack');
+        startPolling(data.reference);
       } else {
         setError(data.error || 'Failed to initialize payment');
-        setLoading(false);
       }
     } catch (err) {
       console.error('Fund wallet error:', err);
       setError('An error occurred. Please try again.');
+    } finally {
       setLoading(false);
     }
+  };
+
+  const handleBackToForm = () => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+    }
+    setView('form');
+    setPaystackUrl('');
+    setPaymentReference('');
+  };
+
+  const handleClose = () => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+    }
+    onClose();
   };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+      <div className={`bg-white rounded-2xl shadow-xl w-full overflow-hidden transition-all duration-300 ${
+        view === 'paystack' ? 'max-w-lg h-[600px]' : 'max-w-md'
+      }`}>
         {/* Header */}
-        <div className="bg-brand-dark text-white p-6 relative">
+        <div className="bg-brand-dark text-white p-4 relative">
           <button
-            onClick={onClose}
-            className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
+            onClick={handleClose}
+            className="absolute top-3 right-3 text-white/70 hover:text-white transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center">
-              <Wallet className="h-6 w-6 text-brand-dark" />
+            {view === 'paystack' && (
+              <button
+                onClick={handleBackToForm}
+                className="text-white/70 hover:text-white transition-colors mr-1"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+            )}
+            <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center">
+              <Wallet className="h-5 w-5 text-brand-dark" />
             </div>
             <div>
-              <h2 className="text-xl font-bold">Fund Wallet to Bid</h2>
-              <p className="text-white/70 text-sm">Add funds to cover your bid amount</p>
+              <h2 className="text-lg font-bold">
+                {view === 'paystack' ? 'Complete Payment' : 'Fund Wallet to Bid'}
+              </h2>
+              <p className="text-white/70 text-xs">
+                {view === 'paystack' ? 'Secure payment via Paystack' : 'Add funds to cover your bid'}
+              </p>
             </div>
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-6">
-          {funded ? (
-            <div className="text-center py-6">
+        <div className={view === 'paystack' ? 'h-[calc(600px-72px)]' : 'p-6'}>
+          {view === 'success' || funded ? (
+            <div className="text-center py-6 px-6">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
               <h3 className="text-xl font-bold text-green-800 mb-2">Wallet Funded!</h3>
               <p className="text-green-600">Submitting your bid request...</p>
             </div>
+          ) : view === 'verifying' ? (
+            <div className="text-center py-6 px-6">
+              <Loader2 className="h-12 w-12 animate-spin text-brand-dark mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Verifying Payment</h3>
+              <p className="text-gray-600 text-sm">Please wait while we confirm your payment...</p>
+            </div>
+          ) : view === 'paystack' ? (
+            <iframe
+              src={paystackUrl}
+              className="w-full h-full border-0"
+              title="Paystack Payment"
+              allow="payment"
+            />
           ) : (
             <>
               {vehicleName && (
@@ -296,7 +323,7 @@ export default function FundWalletModal({
                 ) : (
                   <>
                     <DollarSign className="mr-2 h-4 w-4" />
-                    Fund Wallet with Paystack
+                    Pay with Paystack
                   </>
                 )}
               </Button>
