@@ -48,7 +48,12 @@ export default function AuctionCountdown({ auctionDateTime, auctionDate }: Aucti
 
   // If no auctionDateTime, show the date string if available
   if (!auctionDateTime) {
-    if (auctionDate) {
+    // Don't show if auctionDate looks like a lot number or is "See listing"
+    const isInvalidDate = !auctionDate ||
+      /lot\s*(?:number|#)?[:\s#]*\d+/i.test(auctionDate) ||
+      auctionDate === 'See listing';
+
+    if (!isInvalidDate) {
       return (
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <Clock className="h-4 w-4" />
