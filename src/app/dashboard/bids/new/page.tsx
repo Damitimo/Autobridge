@@ -609,19 +609,19 @@ export default function NewBidRequestPage() {
                       <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                       <Input
                         type="number"
-                        placeholder={`Min: $${getNextValidBid(vehicleDetails.currentBid).toLocaleString()}`}
+                        placeholder={`Enter max amount (current: $${vehicleDetails.currentBid.toLocaleString()})`}
                         value={maxBidAmount}
                         onChange={(e) => setMaxBidAmount(e.target.value)}
                         required
-                        min={getNextValidBid(vehicleDetails.currentBid)}
-                        step={getBidIncrement(vehicleDetails.currentBid)}
+                        min={vehicleDetails.currentBid + 1}
+                        step="1"
                         className="pl-10 text-lg"
                       />
                     </div>
                     <p className="text-xs text-gray-500 mt-1">
-                      Bid increment: ${getBidIncrement(vehicleDetails.currentBid)} • We&apos;ll bid up to this amount
+                      We&apos;ll bid in increments up to this maximum amount
                     </p>
-                    {/* Suggested Bids */}
+                    {/* Quick Select Suggestions */}
                     <div className="flex flex-wrap gap-2 mt-2">
                       {getSuggestedBids(vehicleDetails.currentBid).slice(0, 4).map((bid) => (
                         <button
