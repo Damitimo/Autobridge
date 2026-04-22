@@ -128,12 +128,12 @@ export default function CostBreakdown({
       {/* Header - Always visible */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-blue-100/50 transition-colors"
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-blue-100/50 transition-colors text-left"
       >
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-blue-900">Estimated Landing Cost</span>
+        <span className="font-semibold text-blue-900 flex items-center gap-2">
+          Estimated Landing Cost
           {loading && <Loader2 className="h-4 w-4 animate-spin text-blue-600" />}
-        </div>
+        </span>
         <div className="flex items-center gap-3">
           <div className="text-right">
             <p className="text-lg font-bold text-blue-900">${estimate.totalUSD.toLocaleString()}</p>
