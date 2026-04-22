@@ -14,6 +14,10 @@ export const metadata: Metadata = {
   title: 'AutoBridge - Launching Soon',
   description: 'Import vehicles from U.S. auctions to Nigeria with complete transparency, real-time tracking, and AI-powered cost estimation.',
   keywords: ['auto import', 'car auction', 'nigeria', 'copart', 'iaai', 'vehicle import'],
+  icons: {
+    icon: '/logo-icon.svg',
+    apple: '/logo-icon.svg',
+  },
 };
 
 export default function RootLayout({
