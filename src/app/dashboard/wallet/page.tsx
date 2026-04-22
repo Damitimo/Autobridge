@@ -203,19 +203,19 @@ export default function WalletPage() {
 
         {/* Balance Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {/* Total Balance */}
+          {/* Available Balance - Primary */}
           <Card className="border-2 border-primary-200 bg-gradient-to-br from-primary-50 to-white">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Balance</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">Available Balance</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-3xl font-bold text-brand-dark">
-                    {formatCurrency(balance?.total || 0, 'USD')}
+                    {formatCurrency(balance?.available || 0, 'USD')}
                   </p>
                   <p className="text-sm text-gray-500 mt-1">
-                    ≈ ₦{((balance?.total || 0) * 1550).toLocaleString()}
+                    ≈ ₦{((balance?.available || 0) * 1550).toLocaleString()}
                   </p>
                 </div>
                 <Wallet className="h-12 w-12 text-brand-dark opacity-20" />
@@ -223,22 +223,22 @@ export default function WalletPage() {
             </CardContent>
           </Card>
 
-          {/* Available Balance */}
-          <Card className="border-2 border-green-200 bg-gradient-to-br from-green-50 to-white">
+          {/* Total Balance */}
+          <Card className="border-2 border-gray-200 bg-gradient-to-br from-gray-50 to-white">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">Available</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">Total Balance</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-3xl font-bold text-green-600">
-                    {formatCurrency(balance?.available || 0, 'USD')}
+                  <p className="text-3xl font-bold text-gray-700">
+                    {formatCurrency(balance?.total || 0, 'USD')}
                   </p>
                   <p className="text-sm text-gray-500 mt-1">
-                    Can be used for bids
+                    Available + Locked
                   </p>
                 </div>
-                <ArrowUpRight className="h-12 w-12 text-green-600 opacity-20" />
+                <ArrowUpRight className="h-12 w-12 text-gray-400 opacity-20" />
               </div>
             </CardContent>
           </Card>
