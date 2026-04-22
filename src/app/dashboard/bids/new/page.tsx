@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Loader2, AlertCircle, Link2, Car, DollarSign, ExternalLink, Info, ChevronLeft, ChevronRight, X, ZoomIn } from 'lucide-react';
+import CostBreakdown from '@/components/cost-breakdown';
 
 // Dynamic imports for Paystack components (they use window)
 const SignupFeeModal = dynamic(() => import('@/components/signup-fee-modal'), { ssr: false });
@@ -595,6 +596,18 @@ export default function NewBidRequestPage() {
                       We&apos;ll bid up to this amount on your behalf
                     </p>
                   </div>
+
+                  {/* Cost Breakdown */}
+                  {maxBidAmount && parseFloat(maxBidAmount) > 0 && (
+                    <CostBreakdown
+                      vehiclePrice={parseFloat(maxBidAmount)}
+                      auctionSource={auctionLink.toLowerCase().includes('iaai') ? 'iaai' : 'copart'}
+                      location={vehicleDetails.location}
+                      vehicleYear={vehicleDetails.year}
+                      hasKeys={vehicleDetails.hasKeys}
+                      isRunning={vehicleDetails.highlights?.toLowerCase().includes('run') ?? true}
+                    />
+                  )}
 
                   <Button
                     type="submit"
