@@ -206,6 +206,9 @@ export const bidRequests = pgTable('bid_requests', {
   vehicleDamageType: varchar('vehicle_damage_type', { length: 100 }),
   currentBid: decimal('current_bid', { precision: 10, scale: 2 }),
 
+  // Locked funds for this bid request
+  lockedAmount: decimal('locked_amount', { precision: 10, scale: 2 }),
+
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

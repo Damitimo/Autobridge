@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { bidRequests, wallets } from '@/db/schema';
 import { getUserFromToken } from '@/lib/auth';
+import { lockFundsForBidRequest } from '@/lib/wallet';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -68,13 +69,14 @@ export async function POST(request: NextRequest) {
 
     const availableBalance = parseFloat(wallet?.availableBalance || '0');
     const maxBidAmount = validated.maxBidAmount;
+    const depositRequired = maxBidAmount * 0.10; // 10% deposit
 
-    if (availableBalance < maxBidAmount) {
+    if (availableBalance < depositRequired) {
       return NextResponse.json(
         {
-          error: `Insufficient wallet balance. You need at least $${maxBidAmount.toLocaleString()} to place this bid. Your available balance is $${availableBalance.toLocaleString()}. Please fund your wallet first.`,
+          error: `Insufficient wallet balance. You need at least $${depositRequired.toLocaleString()} (10% deposit) to place this bid. Your available balance is $${availableBalance.toLocaleString()}. Please fund your wallet first.`,
           code: 'INSUFFICIENT_BALANCE',
-          required: maxBidAmount,
+          required: depositRequired,
           available: availableBalance,
         },
         { status: 400 }
@@ -114,13 +116,30 @@ export async function POST(request: NextRequest) {
       currentBid: vehicleData?.currentBid?.toString() || null,
     }).returning();
 
+    // Lock 10% deposit in user's wallet
+    let lockedAmount = depositRequired;
+    try {
+      const result = await lockFundsForBidRequest(user.id, newRequest.id, maxBidAmount);
+      lockedAmount = result.lockedAmount;
+    } catch (lockError) {
+      // If locking fails, delete the bid request and return error
+      await db.delete(bidRequests).where(eq(bidRequests.id, newRequest.id));
+      console.error('Failed to lock funds:', lockError);
+      return NextResponse.json(
+        { error: 'Failed to lock deposit. Please try again.' },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
-      message: 'Bid request submitted successfully',
+      message: `Bid request submitted successfully. $${lockedAmount.toFixed(2)} (10% deposit) has been locked in your wallet.`,
       data: {
         id: newRequest.id,
         auctionSource: auctionSource.toUpperCase(),
         maxBidAmount: validated.maxBidAmount,
+        lockedAmount: lockedAmount,
+        depositPercentage: 10,
         status: 'pending',
         estimatedResponse: '2-4 hours',
       },

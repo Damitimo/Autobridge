@@ -6,7 +6,7 @@
  */
 
 import { db } from '@/db';
-import { wallets, walletTransactions, bids, users } from '@/db/schema';
+import { wallets, walletTransactions, bids, bidRequests, users } from '@/db/schema';
 import { eq, sql } from 'drizzle-orm';
 
 export interface BidEligibility {
@@ -170,6 +170,116 @@ export async function lockDepositForBid(
     .where(eq(bids.id, bidId));
   
   console.log(`🔒 Locked $${depositAmount} deposit for bid ${bidId}`);
+}
+
+/**
+ * Lock 10% deposit for bid request
+ * Called when user submits a bid request
+ * This deposit is forfeitable if user wins but doesn't pay
+ */
+export async function lockFundsForBidRequest(
+  userId: string,
+  bidRequestId: string,
+  maxBidAmount: number
+) {
+  const wallet = await getWallet(userId);
+  if (!wallet) throw new Error('Wallet not found');
+
+  const depositAmount = maxBidAmount * 0.10; // 10% deposit
+  const available = parseFloat(wallet.availableBalance);
+
+  if (available < depositAmount) {
+    throw new Error(`Insufficient balance. Need $${depositAmount.toFixed(2)} (10% deposit), have $${available.toFixed(2)}`);
+  }
+
+  // Update wallet - lock 10% deposit
+  await db.update(wallets)
+    .set({
+      availableBalance: sql`${wallets.availableBalance} - ${depositAmount}`,
+      lockedBalance: sql`${wallets.lockedBalance} + ${depositAmount}`,
+      updatedAt: new Date(),
+    })
+    .where(eq(wallets.id, wallet.id));
+
+  // Record transaction
+  await db.insert(walletTransactions).values({
+    walletId: wallet.id,
+    userId,
+    type: 'bid_lock',
+    amount: depositAmount.toString(),
+    currency: 'USD',
+    usdAmount: depositAmount.toString(),
+    balanceBefore: available.toString(),
+    balanceAfter: (available - depositAmount).toString(),
+    status: 'completed',
+    description: `10% deposit locked for bid request (max bid: $${maxBidAmount})`,
+    metadata: { bidRequestId },
+  });
+
+  // Update bid request with locked amount
+  await db.update(bidRequests)
+    .set({
+      lockedAmount: depositAmount.toString(),
+    })
+    .where(eq(bidRequests.id, bidRequestId));
+
+  console.log(`🔒 Locked $${depositAmount} (10% deposit) for bid request ${bidRequestId}`);
+
+  return { lockedAmount: depositAmount, depositPercentage: 10 };
+}
+
+/**
+ * Unlock funds for cancelled/rejected bid request
+ */
+export async function unlockFundsForBidRequest(bidRequestId: string) {
+  const [bidRequest] = await db
+    .select()
+    .from(bidRequests)
+    .where(eq(bidRequests.id, bidRequestId))
+    .limit(1);
+
+  if (!bidRequest || !bidRequest.lockedAmount) {
+    console.log(`No locked funds found for bid request ${bidRequestId}`);
+    return;
+  }
+
+  const wallet = await getWallet(bidRequest.userId);
+  if (!wallet) return;
+
+  const lockedAmount = parseFloat(bidRequest.lockedAmount);
+
+  // Release locked funds
+  await db.update(wallets)
+    .set({
+      availableBalance: sql`${wallets.availableBalance} + ${lockedAmount}`,
+      lockedBalance: sql`${wallets.lockedBalance} - ${lockedAmount}`,
+      updatedAt: new Date(),
+    })
+    .where(eq(wallets.id, wallet.id));
+
+  // Record transaction
+  await db.insert(walletTransactions).values({
+    walletId: wallet.id,
+    userId: bidRequest.userId,
+    type: 'bid_unlock',
+    amount: lockedAmount.toString(),
+    currency: 'USD',
+    usdAmount: lockedAmount.toString(),
+    balanceBefore: wallet.availableBalance,
+    balanceAfter: (parseFloat(wallet.availableBalance) + lockedAmount).toString(),
+    status: 'completed',
+    description: 'Funds released - bid request cancelled/rejected',
+    metadata: { bidRequestId },
+  });
+
+  // Clear locked amount on bid request
+  await db.update(bidRequests)
+    .set({
+      lockedAmount: null,
+    })
+    .where(eq(bidRequests.id, bidRequestId));
+
+  console.log(`🔓 Unlocked $${lockedAmount} for bid request ${bidRequestId}`);
 }
 
 /**
