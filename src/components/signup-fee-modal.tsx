@@ -154,33 +154,35 @@ export default function SignupFeeModal({ isOpen, onClose, onSuccess }: SignupFee
             // User closed the popup without completing payment
             setError('Payment was cancelled');
           },
-          callback: async (response) => {
+          callback: function(response: { reference: string }) {
             // Payment completed, verify it
             setLoading(true);
-            try {
-              const verifyRes = await fetch('/api/wallet/verify', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify({ reference: response.reference }),
+            fetch('/api/wallet/verify', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({ reference: response.reference }),
+            })
+              .then(res => res.json())
+              .then(verifyData => {
+                if (verifyData.success) {
+                  fetchWalletBalance().then(() => {
+                    setView('main');
+                    setFundAmount('');
+                    setError('');
+                    setLoading(false);
+                  });
+                } else {
+                  setError('Payment verification failed. Please contact support.');
+                  setLoading(false);
+                }
+              })
+              .catch(() => {
+                setError('Failed to verify payment. Please contact support.');
+                setLoading(false);
               });
-
-              const verifyData = await verifyRes.json();
-              if (verifyData.success) {
-                await fetchWalletBalance();
-                setView('main');
-                setFundAmount('');
-                setError('');
-              } else {
-                setError('Payment verification failed. Please contact support.');
-              }
-            } catch (err) {
-              setError('Failed to verify payment. Please contact support.');
-            } finally {
-              setLoading(false);
-            }
           },
         });
 
