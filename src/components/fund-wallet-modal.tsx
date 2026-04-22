@@ -5,7 +5,23 @@ import { X, Loader2, Wallet, CheckCircle, AlertCircle, DollarSign } from 'lucide
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { usePaystackPayment } from 'react-paystack';
+
+// Paystack types
+declare global {
+  interface Window {
+    PaystackPop: {
+      setup: (options: {
+        key: string;
+        email: string;
+        amount: number;
+        currency?: string;
+        ref: string;
+        onClose: () => void;
+        callback: (response: { reference: string }) => void;
+      }) => { openIframe: () => void };
+    };
+  }
+}
 
 interface FundWalletModalProps {
   isOpen: boolean;
@@ -17,51 +33,6 @@ interface FundWalletModalProps {
 }
 
 const NGN_RATE = 1550;
-
-// Paystack payment component
-function PaystackPaymentButton({
-  config,
-  onSuccess,
-  onClose,
-  disabled,
-  loading,
-}: {
-  config: { reference: string; email: string; amount: number; publicKey: string };
-  onSuccess: (reference: string) => void;
-  onClose: () => void;
-  disabled: boolean;
-  loading: boolean;
-}) {
-  const initializePayment = usePaystackPayment(config);
-
-  const handleClick = () => {
-    initializePayment({
-      onSuccess: (response) => onSuccess(response.reference),
-      onClose: onClose,
-    });
-  };
-
-  return (
-    <Button
-      onClick={handleClick}
-      disabled={disabled || loading}
-      className="w-full bg-brand-gold hover:bg-yellow-500 text-brand-dark font-semibold"
-      size="lg"
-    >
-      {loading ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Processing...
-        </>
-      ) : (
-        <>
-          <DollarSign className="mr-2 h-4 w-4" />
-          Pay with Paystack
-        </>
-      )}
-    </Button>
-  );
-}
 
 export default function FundWalletModal({
   isOpen,
@@ -76,12 +47,7 @@ export default function FundWalletModal({
   const [walletBalance, setWalletBalance] = useState(availableBalance);
   const [funded, setFunded] = useState(false);
   const [fundAmount, setFundAmount] = useState('');
-  const [paymentConfig, setPaymentConfig] = useState<{
-    reference: string;
-    email: string;
-    amount: number;
-    publicKey: string;
-  } | null>(null);
+  const [userEmail, setUserEmail] = useState('');
 
   const shortfall = Math.max(0, requiredAmount - walletBalance);
   const suggestedAmount = Math.ceil(shortfall * NGN_RATE / 1000) * 1000;
@@ -90,13 +56,28 @@ export default function FundWalletModal({
     if (isOpen) {
       setWalletBalance(availableBalance);
       setFunded(false);
-      setPaymentConfig(null);
       setError('');
       setFundAmount(suggestedAmount.toString());
+      fetchUserEmail();
     }
   }, [isOpen, availableBalance, suggestedAmount]);
 
-  const fetchWalletBalance = async () => {
+  const fetchUserEmail = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (data.user?.email) {
+        setUserEmail(data.user.email);
+      }
+    } catch (err) {
+      console.error('Failed to fetch user email:', err);
+    }
+  };
+
+  const fetchWalletBalance = async (): Promise<number> => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch('/api/wallet/balance', {
@@ -113,7 +94,7 @@ export default function FundWalletModal({
     return walletBalance;
   };
 
-  const initializePayment = async () => {
+  const handleFundWallet = async () => {
     const amount = parseFloat(fundAmount);
     if (!amount || amount <= 0) {
       setError('Please enter a valid amount');
@@ -136,61 +117,76 @@ export default function FundWalletModal({
 
       const data = await response.json();
 
-      if (data.success && data.publicKey) {
-        setPaymentConfig({
-          reference: data.reference,
-          email: data.email,
-          amount: data.amount,
-          publicKey: data.publicKey,
+      if (data.success && data.publicKey && data.reference) {
+        setLoading(false);
+
+        // Check if Paystack script is loaded
+        if (!window.PaystackPop) {
+          setError('Payment system is loading. Please try again in a moment.');
+          return;
+        }
+
+        // Use Paystack inline popup
+        const handler = window.PaystackPop.setup({
+          key: data.publicKey,
+          email: userEmail,
+          amount: amount * 100, // Paystack expects amount in kobo
+          currency: 'NGN',
+          ref: data.reference,
+          onClose: function() {
+            // User closed the popup without completing payment
+            setError('Payment was cancelled');
+          },
+          callback: function(response: { reference: string }) {
+            // Payment completed, verify it
+            setLoading(true);
+            fetch('/api/wallet/verify', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({ reference: response.reference }),
+            })
+              .then(res => res.json())
+              .then(verifyData => {
+                if (verifyData.success) {
+                  fetchWalletBalance().then(newBalance => {
+                    if (newBalance >= requiredAmount) {
+                      setFunded(true);
+                      setTimeout(() => {
+                        onClose();
+                        if (onSuccess) onSuccess();
+                      }, 1500);
+                    } else {
+                      // Need more funds
+                      setFundAmount(Math.ceil((requiredAmount - newBalance) * NGN_RATE / 1000) * 1000 + '');
+                      setError('');
+                    }
+                    setLoading(false);
+                  });
+                } else {
+                  setError('Payment verification failed. Please contact support.');
+                  setLoading(false);
+                }
+              })
+              .catch(() => {
+                setError('Failed to verify payment. Please contact support.');
+                setLoading(false);
+              });
+          },
         });
+
+        handler.openIframe();
       } else {
         setError(data.error || 'Failed to initialize payment');
+        setLoading(false);
       }
     } catch (err) {
+      console.error('Fund wallet error:', err);
       setError('An error occurred. Please try again.');
-    } finally {
       setLoading(false);
     }
-  };
-
-  const handlePaymentSuccess = async (reference: string) => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const verifyRes = await fetch('/api/wallet/verify', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ reference }),
-      });
-
-      const verifyData = await verifyRes.json();
-      if (verifyData.success) {
-        const newBalance = await fetchWalletBalance();
-        if (newBalance >= requiredAmount) {
-          setFunded(true);
-          setTimeout(() => {
-            onClose();
-            if (onSuccess) onSuccess();
-          }, 1500);
-        } else {
-          setPaymentConfig(null);
-          setFundAmount(Math.ceil((requiredAmount - newBalance) * NGN_RATE / 1000) * 1000 + '');
-        }
-      } else {
-        setError('Payment verification failed. Please contact support.');
-      }
-    } catch (err) {
-      setError('Failed to verify payment. Please contact support.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePaymentClose = () => {
-    setPaymentConfig(null);
   };
 
   if (!isOpen) return null;
@@ -270,10 +266,7 @@ export default function FundWalletModal({
                   type="number"
                   placeholder={suggestedAmount.toString()}
                   value={fundAmount}
-                  onChange={(e) => {
-                    setFundAmount(e.target.value);
-                    setPaymentConfig(null);
-                  }}
+                  onChange={(e) => setFundAmount(e.target.value)}
                   className="mt-1"
                 />
                 {fundAmount && (
@@ -289,34 +282,24 @@ export default function FundWalletModal({
                 </div>
               )}
 
-              {paymentConfig ? (
-                <PaystackPaymentButton
-                  config={paymentConfig}
-                  onSuccess={handlePaymentSuccess}
-                  onClose={handlePaymentClose}
-                  disabled={!fundAmount}
-                  loading={loading}
-                />
-              ) : (
-                <Button
-                  onClick={initializePayment}
-                  disabled={loading || !fundAmount}
-                  className="w-full bg-brand-gold hover:bg-yellow-500 text-brand-dark font-semibold"
-                  size="lg"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Initializing...
-                    </>
-                  ) : (
-                    <>
-                      <DollarSign className="mr-2 h-4 w-4" />
-                      Fund Wallet with Paystack
-                    </>
-                  )}
-                </Button>
-              )}
+              <Button
+                onClick={handleFundWallet}
+                disabled={loading || !fundAmount}
+                className="w-full bg-brand-gold hover:bg-yellow-500 text-brand-dark font-semibold"
+                size="lg"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <DollarSign className="mr-2 h-4 w-4" />
+                    Fund Wallet with Paystack
+                  </>
+                )}
+              </Button>
 
               <p className="text-xs text-gray-400 text-center mt-4">
                 Secure payment powered by Paystack

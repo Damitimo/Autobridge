@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Loader2, Wallet, CheckCircle, AlertCircle, ArrowLeft, DollarSign } from 'lucide-react';
+import { X, Loader2, Wallet, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { usePaystackPayment } from 'react-paystack';
 
 interface SignupFeeModalProps {
   isOpen: boolean;
@@ -16,51 +15,6 @@ interface SignupFeeModalProps {
 const SIGNUP_FEE_USD = 67;
 const NGN_RATE = 1550;
 
-// Paystack payment component
-function PaystackPaymentButton({
-  config,
-  onSuccess,
-  onClose,
-  disabled,
-  loading,
-}: {
-  config: { reference: string; email: string; amount: number; publicKey: string };
-  onSuccess: (reference: string) => void;
-  onClose: () => void;
-  disabled: boolean;
-  loading: boolean;
-}) {
-  const initializePayment = usePaystackPayment(config);
-
-  const handleClick = () => {
-    initializePayment({
-      onSuccess: (response) => onSuccess(response.reference),
-      onClose: onClose,
-    });
-  };
-
-  return (
-    <Button
-      onClick={handleClick}
-      disabled={disabled || loading}
-      className="w-full bg-brand-gold hover:bg-yellow-500 text-brand-dark font-semibold"
-      size="lg"
-    >
-      {loading ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Processing...
-        </>
-      ) : (
-        <>
-          <DollarSign className="mr-2 h-4 w-4" />
-          Pay with Paystack
-        </>
-      )}
-    </Button>
-  );
-}
-
 export default function SignupFeeModal({ isOpen, onClose, onSuccess }: SignupFeeModalProps) {
   const [loading, setLoading] = useState(false);
   const [fetchingBalance, setFetchingBalance] = useState(true);
@@ -69,22 +23,32 @@ export default function SignupFeeModal({ isOpen, onClose, onSuccess }: SignupFee
   const [paid, setPaid] = useState(false);
   const [view, setView] = useState<'main' | 'fund'>('main');
   const [fundAmount, setFundAmount] = useState('');
-  const [paymentConfig, setPaymentConfig] = useState<{
-    reference: string;
-    email: string;
-    amount: number;
-    publicKey: string;
-  } | null>(null);
+  const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
     if (isOpen) {
       fetchWalletBalance();
+      fetchUserEmail();
       setView('main');
       setPaid(false);
-      setPaymentConfig(null);
       setError('');
     }
   }, [isOpen]);
+
+  const fetchUserEmail = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (data.user?.email) {
+        setUserEmail(data.user.email);
+      }
+    } catch (err) {
+      console.error('Failed to fetch user email:', err);
+    }
+  };
 
   const fetchWalletBalance = async () => {
     setFetchingBalance(true);
@@ -136,7 +100,7 @@ export default function SignupFeeModal({ isOpen, onClose, onSuccess }: SignupFee
     }
   };
 
-  const initializeFundWallet = async () => {
+  const handleFundWallet = async () => {
     const amount = parseFloat(fundAmount);
     if (!amount || amount <= 0) {
       setError('Please enter a valid amount');
@@ -159,54 +123,66 @@ export default function SignupFeeModal({ isOpen, onClose, onSuccess }: SignupFee
 
       const data = await response.json();
 
-      if (data.success && data.publicKey) {
-        setPaymentConfig({
-          reference: data.reference,
-          email: data.email,
-          amount: data.amount,
-          publicKey: data.publicKey,
+      if (data.success && data.publicKey && data.reference) {
+        setLoading(false);
+
+        // Check if Paystack script is loaded
+        if (!window.PaystackPop) {
+          setError('Payment system is loading. Please try again in a moment.');
+          return;
+        }
+
+        // Use Paystack inline popup
+        const handler = window.PaystackPop.setup({
+          key: data.publicKey,
+          email: userEmail,
+          amount: amount * 100, // Paystack expects amount in kobo
+          currency: 'NGN',
+          ref: data.reference,
+          onClose: function() {
+            // User closed the popup without completing payment
+            setError('Payment was cancelled');
+          },
+          callback: function(response: { reference: string }) {
+            // Payment completed, verify it
+            setLoading(true);
+            fetch('/api/wallet/verify', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({ reference: response.reference }),
+            })
+              .then(res => res.json())
+              .then(verifyData => {
+                if (verifyData.success) {
+                  fetchWalletBalance();
+                  setView('main');
+                  setFundAmount('');
+                  setError('');
+                } else {
+                  setError('Payment verification failed. Please contact support.');
+                }
+                setLoading(false);
+              })
+              .catch(() => {
+                setError('Failed to verify payment. Please contact support.');
+                setLoading(false);
+              });
+          },
         });
+
+        handler.openIframe();
       } else {
         setError(data.error || 'Failed to initialize payment');
+        setLoading(false);
       }
     } catch (err) {
+      console.error('Fund wallet error:', err);
       setError('An error occurred. Please try again.');
-    } finally {
       setLoading(false);
     }
-  };
-
-  const handlePaymentSuccess = async (reference: string) => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const verifyRes = await fetch('/api/wallet/verify', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ reference }),
-      });
-
-      const verifyData = await verifyRes.json();
-      if (verifyData.success) {
-        await fetchWalletBalance();
-        setPaymentConfig(null);
-        setView('main');
-        setFundAmount('');
-      } else {
-        setError('Payment verification failed. Please contact support.');
-      }
-    } catch (err) {
-      setError('Failed to verify payment. Please contact support.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePaymentClose = () => {
-    setPaymentConfig(null);
   };
 
   if (!isOpen) return null;
@@ -254,14 +230,10 @@ export default function SignupFeeModal({ isOpen, onClose, onSuccess }: SignupFee
           ) : view === 'fund' ? (
             <>
               <button
-                onClick={() => {
-                  setView('main');
-                  setPaymentConfig(null);
-                }}
+                onClick={() => setView('main')}
                 className="flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4"
               >
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                Back
+                ← Back
               </button>
 
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm mb-4">
@@ -276,10 +248,7 @@ export default function SignupFeeModal({ isOpen, onClose, onSuccess }: SignupFee
                   type="number"
                   placeholder={suggestedAmount.toString()}
                   value={fundAmount}
-                  onChange={(e) => {
-                    setFundAmount(e.target.value);
-                    setPaymentConfig(null);
-                  }}
+                  onChange={(e) => setFundAmount(e.target.value)}
                   className="mt-1"
                 />
                 {fundAmount && (
@@ -295,31 +264,21 @@ export default function SignupFeeModal({ isOpen, onClose, onSuccess }: SignupFee
                 </div>
               )}
 
-              {paymentConfig ? (
-                <PaystackPaymentButton
-                  config={paymentConfig}
-                  onSuccess={handlePaymentSuccess}
-                  onClose={handlePaymentClose}
-                  disabled={!fundAmount}
-                  loading={loading}
-                />
-              ) : (
-                <Button
-                  onClick={initializeFundWallet}
-                  disabled={loading || !fundAmount}
-                  className="w-full bg-brand-gold hover:bg-yellow-500 text-brand-dark font-semibold"
-                  size="lg"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Initializing...
-                    </>
-                  ) : (
-                    'Pay with Paystack'
-                  )}
-                </Button>
-              )}
+              <Button
+                onClick={handleFundWallet}
+                disabled={loading || !fundAmount}
+                className="w-full bg-brand-gold hover:bg-yellow-500 text-brand-dark font-semibold"
+                size="lg"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  'Pay with Paystack'
+                )}
+              </Button>
             </>
           ) : (
             <>
