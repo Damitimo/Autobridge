@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronDown, ChevronUp, Calculator, Loader2, TrendingUp, Clock, Ship, AlertTriangle } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, TrendingUp, Clock, Ship, AlertTriangle } from 'lucide-react';
 
 interface CostItem {
   category: string;
@@ -131,7 +131,6 @@ export default function CostBreakdown({
         className="w-full px-4 py-3 flex items-center justify-between hover:bg-blue-100/50 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <Calculator className="h-5 w-5 text-blue-600" />
           <span className="font-semibold text-blue-900">Estimated Landing Cost</span>
           {loading && <Loader2 className="h-4 w-4 animate-spin text-blue-600" />}
         </div>
