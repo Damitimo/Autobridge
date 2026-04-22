@@ -189,7 +189,7 @@ export default function CostBreakdown({
           <div className="mt-4 pt-3 border-t-2 border-blue-300">
             <div className="flex items-center justify-between">
               <span className="font-bold text-blue-900">Total Estimated Cost</span>
-              <div className="text-right">
+              <div className="text-right ml-4">
                 <p className="text-xl font-bold text-blue-900">${estimate.totalUSD.toLocaleString()}</p>
                 <p className="text-sm text-blue-600">₦{estimate.totalNGN.toLocaleString()}</p>
               </div>
