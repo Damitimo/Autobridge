@@ -103,8 +103,10 @@ export async function POST(request: NextRequest) {
       const match = auctionLink.match(/lot\/(\d+)/i);
       lotNumber = match ? match[1] : '';
     } else {
-      const match = auctionLink.match(/itemID=(\d+)/i) || auctionLink.match(/\/(\d+)(?:\?|$)/);
-      lotNumber = match ? match[1] : '';
+      // IAAI formats: /VehicleDetail/45242122~US or ?itemID=45242122
+      const detailMatch = auctionLink.match(/VehicleDetail\/(\d+)/i);
+      const itemMatch = auctionLink.match(/itemID=(\d+)/i);
+      lotNumber = detailMatch ? detailMatch[1] : (itemMatch ? itemMatch[1] : '');
     }
 
     if (!lotNumber) {
@@ -115,39 +117,35 @@ export async function POST(request: NextRequest) {
     }
 
     let vehicle;
-    if (isCopart) {
-      console.log('Calling scraper service for lot:', lotNumber);
+    const scraperEndpoint = isCopart ? '/scrape/copart' : '/scrape/iaai';
+    const source = isCopart ? 'Copart' : 'IAAI';
 
-      // Call external scraper service
-      const scraperResponse = await fetch(`${SCRAPER_URL}/scrape/copart`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': SCRAPER_API_KEY,
-        },
-        body: JSON.stringify({ url: auctionLink }),
-      });
+    console.log(`Calling ${source} scraper service for lot:`, lotNumber);
 
-      const scraperData = await scraperResponse.json();
+    // Call external scraper service
+    const scraperResponse = await fetch(`${SCRAPER_URL}${scraperEndpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': SCRAPER_API_KEY,
+      },
+      body: JSON.stringify({ url: auctionLink }),
+    });
 
-      if (!scraperResponse.ok) {
-        console.error('Scraper error:', scraperData);
-        return NextResponse.json(
-          { error: scraperData.error || 'Failed to fetch vehicle details' },
-          { status: scraperResponse.status }
-        );
-      }
+    const scraperData = await scraperResponse.json();
 
-      vehicle = scraperData.vehicle;
-      console.log('Scrape complete:', vehicle.title);
-      console.log('Auction date:', vehicle.auctionDate, '| DateTime:', vehicle.auctionDateTime);
-      console.log('Location:', vehicle.location);
-    } else {
+    if (!scraperResponse.ok) {
+      console.error('Scraper error:', scraperData);
       return NextResponse.json(
-        { error: 'IAAI lookup coming soon. Please use Copart links for now.' },
-        { status: 400 }
+        { error: scraperData.error || 'Failed to fetch vehicle details' },
+        { status: scraperResponse.status }
       );
     }
+
+    vehicle = scraperData.vehicle;
+    console.log(`${source} scrape complete:`, vehicle.title);
+    console.log('Auction date:', vehicle.auctionDate, '| DateTime:', vehicle.auctionDateTime);
+    console.log('Location:', vehicle.location);
 
     return NextResponse.json({
       success: true,
