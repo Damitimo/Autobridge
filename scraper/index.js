@@ -798,6 +798,473 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
   }
 });
 
+// Scrape IAAI vehicle
+app.post('/scrape/iaai', authenticate, async (req, res) => {
+  const { url } = req.body;
+
+  if (!url || !url.includes('iaai.com')) {
+    return res.status(400).json({ error: 'Valid IAAI URL is required' });
+  }
+
+  let browser;
+  try {
+    console.log('Starting IAAI scrape for:', url);
+
+    // Extract stock number from URL
+    // Formats: /VehicleDetail/45242122~US or ?itemID=45242122 or /VehicleDetail/45242122
+    const detailMatch = url.match(/VehicleDetail\/(\d+)/i);
+    const itemMatch = url.match(/itemID=(\d+)/i);
+    const stockNumber = detailMatch ? detailMatch[1] : (itemMatch ? itemMatch[1] : '');
+
+    const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || undefined;
+
+    browser = await puppeteer.launch({
+      headless: true,
+      executablePath,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--disable-gpu',
+        '--window-size=1920,1080',
+        '--disable-blink-features=AutomationControlled',
+        '--single-process',
+      ],
+    });
+
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1920, height: 1080 });
+    await page.setUserAgent(
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    );
+    await page.setExtraHTTPHeaders({
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    });
+
+    // Intercept network requests to capture API data
+    let apiVehicleData = null;
+    await page.setRequestInterception(true);
+
+    page.on('request', request => {
+      request.continue();
+    });
+
+    page.on('response', async response => {
+      const responseUrl = response.url();
+      if (responseUrl.includes('/api/') && responseUrl.includes('vehicle')) {
+        try {
+          const json = await response.json();
+          if (json) {
+            apiVehicleData = json;
+            console.log('Captured IAAI API data');
+          }
+        } catch (e) {
+          // Not JSON response
+        }
+      }
+    });
+
+    console.log('Navigating to:', url);
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+    await page.waitForSelector('body', { timeout: 10000 });
+
+    // Wait for dynamic content to load
+    await new Promise(resolve => setTimeout(resolve, 5000));
+
+    // Scroll to trigger lazy loading
+    await page.evaluate(() => window.scrollBy(0, 500));
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Extract vehicle data
+    const vehicleData = await page.evaluate(() => {
+      const getData = (selector, attribute) => {
+        const el = document.querySelector(selector);
+        if (!el) return '';
+        return attribute ? (el.getAttribute(attribute) || '') : (el.textContent?.trim() || '');
+      };
+
+      // Title - IAAI typically uses h1 or specific title elements
+      let title = getData('h1') ||
+                  getData('.vehicle-title') ||
+                  getData('[data-testid="vehicle-title"]') ||
+                  getData('.pdp-vehicle-title') ||
+                  getData('.stock-title');
+
+      // Images - IAAI uses various CDN patterns
+      let images = [];
+
+      // Method 1: Look for image gallery/carousel images
+      const imageSelectors = [
+        '.gallery-image img',
+        '.image-gallery img',
+        '.pdp-gallery img',
+        '.vehicle-images img',
+        '.carousel-item img',
+        '.slick-slide img',
+        '[class*="gallery"] img',
+        '[class*="carousel"] img',
+        '[class*="slider"] img',
+        '.thumbnail-list img',
+        '.thumb-image img',
+        'img[src*="vis.iaai.com"]',
+        'img[src*="images.iaai.com"]',
+        'img[data-src*="vis.iaai.com"]',
+        'img[data-src*="images.iaai.com"]',
+      ];
+
+      for (const selector of imageSelectors) {
+        const imgElements = document.querySelectorAll(selector);
+        imgElements.forEach(img => {
+          let src = img.getAttribute('src') || img.getAttribute('data-src') ||
+                    img.getAttribute('data-lazy') || img.getAttribute('data-original') || '';
+          // Convert thumbnail to full size
+          src = src.replace(/\/thumb\//i, '/full/')
+                   .replace(/_thumb\./i, '.')
+                   .replace(/\?.*$/, ''); // Remove query params for cleaner URLs
+          if (src && (src.includes('iaai.com') || src.includes('vis.iaai') || src.includes('images.iaai'))) {
+            images.push(src);
+          }
+        });
+      }
+
+      // Method 2: Look in script tags for image URLs
+      if (images.length <= 1) {
+        const scripts = document.querySelectorAll('script');
+        scripts.forEach(script => {
+          const content = script.textContent || '';
+          // IAAI image URL patterns
+          const imagePatterns = [
+            /https?:\/\/vis\.iaai\.com[^"'\s]+\.(?:jpg|jpeg|png|webp)/gi,
+            /https?:\/\/images\.iaai\.com[^"'\s]+\.(?:jpg|jpeg|png|webp)/gi,
+            /https?:\/\/[^"'\s]*iaai[^"'\s]*\/[^"'\s]+\.(?:jpg|jpeg|png|webp)/gi,
+          ];
+          for (const pattern of imagePatterns) {
+            const matches = content.match(pattern);
+            if (matches) {
+              matches.forEach(imgUrl => {
+                // Clean up and convert to full size
+                let cleanUrl = imgUrl.replace(/\/thumb\//i, '/full/')
+                                     .replace(/_thumb\./i, '.')
+                                     .replace(/\\u002F/g, '/')
+                                     .replace(/\\/g, '');
+                images.push(cleanUrl);
+              });
+            }
+          }
+        });
+      }
+
+      // Method 3: Check for JSON data with images
+      if (images.length <= 1) {
+        const scripts = document.querySelectorAll('script');
+        scripts.forEach(script => {
+          const content = script.textContent || '';
+          // Look for image arrays in JSON
+          const jsonMatch = content.match(/["\']images?["\']:\s*\[([^\]]+)\]/i);
+          if (jsonMatch) {
+            const urlMatches = jsonMatch[1].match(/https?:\/\/[^"'\s,]+/g);
+            if (urlMatches) {
+              images = [...images, ...urlMatches.filter(u => u.includes('iaai'))];
+            }
+          }
+        });
+      }
+
+      // Method 4: OG image fallback
+      if (images.length === 0) {
+        const ogImage = document.querySelector('meta[property="og:image"]');
+        if (ogImage) {
+          const ogUrl = ogImage.getAttribute('content');
+          if (ogUrl) images.push(ogUrl);
+        }
+      }
+
+      // Dedupe and filter images
+      images = [...new Set(images)].filter(src => src && src.startsWith('http'));
+
+      // Helper to get detail values from IAAI page structure
+      const getDetailValue = (label) => {
+        const labelLower = label.toLowerCase();
+
+        // Method 1: Look for label:value pairs in tables or lists
+        const rows = document.querySelectorAll('tr, li, .detail-row, .info-row, [class*="detail"], [class*="info-item"]');
+        for (const row of rows) {
+          const text = row.textContent?.toLowerCase() || '';
+          if (text.includes(labelLower)) {
+            // Try to extract value
+            const cells = row.querySelectorAll('td, span, dd, .value, [class*="value"]');
+            for (const cell of cells) {
+              const cellText = cell.textContent?.trim();
+              if (cellText && !cellText.toLowerCase().includes(labelLower) && cellText.length < 200) {
+                return cellText;
+              }
+            }
+          }
+        }
+
+        // Method 2: dt/dd pairs
+        const dts = document.querySelectorAll('dt, .label, [class*="label"]');
+        for (const dt of dts) {
+          if (dt.textContent?.toLowerCase().includes(labelLower)) {
+            const dd = dt.nextElementSibling;
+            if (dd) return dd.textContent?.trim() || '';
+          }
+        }
+
+        // Method 3: Search in page text with patterns
+        const allText = document.body.innerText;
+        const patterns = [
+          new RegExp(label + '[:\\s]+([^\\n]+)', 'i'),
+          new RegExp(label + '\\s*([^\\n]{1,100})', 'i'),
+        ];
+        for (const pattern of patterns) {
+          const match = allText.match(pattern);
+          if (match && match[1].trim().length < 100) {
+            return match[1].trim();
+          }
+        }
+
+        return '';
+      };
+
+      // Extract from embedded JSON/script data
+      let scriptData = {};
+      const scripts = document.querySelectorAll('script');
+      scripts.forEach(script => {
+        const content = script.textContent || '';
+
+        // Look for various JSON patterns
+        const patterns = [
+          /window\.__INITIAL_STATE__\s*=\s*({.+?});/,
+          /window\.__DATA__\s*=\s*({.+?});/,
+          /"vehicleDetails"\s*:\s*({[^}]+})/,
+          /"vehicle"\s*:\s*({[^}]+})/,
+        ];
+
+        for (const pattern of patterns) {
+          const match = content.match(pattern);
+          if (match) {
+            try {
+              const parsed = JSON.parse(match[1]);
+              scriptData = { ...scriptData, ...parsed };
+            } catch (e) {}
+          }
+        }
+
+        // Extract individual fields
+        const fieldPatterns = {
+          vin: [/"vin"\s*:\s*"([A-HJ-NPR-Z0-9]{17})"/i],
+          odometer: [/"odometer"\s*:\s*(\d+)/, /"mileage"\s*:\s*(\d+)/],
+          location: [/"location"\s*:\s*"([^"]+)"/, /"branch"\s*:\s*"([^"]+)"/, /"yardName"\s*:\s*"([^"]+)"/],
+          damageType: [/"primaryDamage"\s*:\s*"([^"]+)"/, /"damage"\s*:\s*"([^"]+)"/],
+          seller: [/"seller"\s*:\s*"([^"]+)"/],
+        };
+
+        for (const [field, patterns] of Object.entries(fieldPatterns)) {
+          for (const pattern of patterns) {
+            const match = content.match(pattern);
+            if (match && !scriptData[field]) {
+              scriptData[field] = match[1];
+            }
+          }
+        }
+      });
+
+      // VIN extraction
+      let vin = '';
+      if (scriptData.vin && /^[A-HJ-NPR-Z0-9]{17}$/i.test(scriptData.vin)) {
+        vin = scriptData.vin.toUpperCase();
+      }
+      if (!vin) {
+        const vinText = getDetailValue('VIN');
+        const vinMatch = vinText.match(/([A-HJ-NPR-Z0-9]{17})/i);
+        if (vinMatch) vin = vinMatch[1].toUpperCase();
+      }
+      if (!vin) {
+        const html = document.body.innerHTML;
+        const vinMatch = html.match(/VIN[:\s#]*([A-HJ-NPR-Z0-9]{17})/i);
+        if (vinMatch) vin = vinMatch[1].toUpperCase();
+      }
+
+      // Current bid
+      let currentBid = 0;
+      const bidSelectors = [
+        '.current-bid',
+        '.high-bid',
+        '[class*="bid-amount"]',
+        '[class*="currentBid"]',
+        '[class*="highBid"]',
+        '.bid-price',
+        '.price',
+      ];
+      for (const selector of bidSelectors) {
+        const el = document.querySelector(selector);
+        if (el) {
+          const text = el.textContent || '';
+          const match = text.match(/\$?\s*([\d,]+)/);
+          if (match) {
+            const bid = parseInt(match[1].replace(/,/g, ''));
+            if (bid > currentBid) currentBid = bid;
+          }
+        }
+      }
+
+      // Look for bid in scripts
+      if (currentBid === 0) {
+        const scripts = document.querySelectorAll('script');
+        scripts.forEach(script => {
+          const content = script.textContent || '';
+          const patterns = [
+            /"currentBid"\s*:\s*(\d+)/,
+            /"highBid"\s*:\s*(\d+)/,
+            /"bidAmount"\s*:\s*(\d+)/,
+          ];
+          for (const pattern of patterns) {
+            const match = content.match(pattern);
+            if (match && parseInt(match[1]) > currentBid) {
+              currentBid = parseInt(match[1]);
+            }
+          }
+        });
+      }
+
+      // Buy now price
+      let buyNowPrice;
+      const buyNowText = getDetailValue('buy now') || getDetailValue('buy it now');
+      const buyNowMatch = buyNowText.match(/[\d,]+/);
+      if (buyNowMatch) buyNowPrice = parseInt(buyNowMatch[0].replace(/,/g, ''));
+
+      // Odometer
+      let odometer = '';
+      if (scriptData.odometer) {
+        odometer = parseInt(scriptData.odometer).toLocaleString();
+      }
+      if (!odometer) {
+        const odoText = getDetailValue('odometer') || getDetailValue('mileage');
+        const odoMatch = odoText.match(/([0-9,]+)/);
+        if (odoMatch) {
+          const num = parseInt(odoMatch[1].replace(/,/g, ''));
+          if (num > 0 && num < 1000000) odometer = num.toLocaleString();
+        }
+      }
+
+      // Damage type
+      let damageType = scriptData.damageType || getDetailValue('primary damage') || getDetailValue('damage');
+
+      // Secondary damage
+      const secondaryDamage = getDetailValue('secondary damage') || '';
+
+      // Location
+      let location = scriptData.location || getDetailValue('location') || getDetailValue('branch') || getDetailValue('yard');
+
+      // Auction date
+      let auctionDate = getDetailValue('auction date') || getDetailValue('sale date') || 'See listing';
+      let auctionDateTime = null;
+      if (auctionDate && auctionDate !== 'See listing') {
+        try {
+          const parsed = new Date(auctionDate);
+          if (!isNaN(parsed.getTime())) {
+            auctionDateTime = parsed.toISOString();
+          }
+        } catch (e) {}
+      }
+
+      // Title/Doc type
+      let titleStatus = getDetailValue('title') || getDetailValue('doc type') || getDetailValue('title type') || '';
+
+      // Other fields
+      const engineType = getDetailValue('engine') || '';
+      const transmission = getDetailValue('transmission') || '';
+      const driveType = getDetailValue('drive') || getDetailValue('drivetrain') || '';
+      const fuelType = getDetailValue('fuel') || '';
+      const color = getDetailValue('color') || '';
+      const bodyStyle = getDetailValue('body') || getDetailValue('body style') || '';
+      const hasKeys = (getDetailValue('keys') || '').toLowerCase().includes('yes');
+      const seller = scriptData.seller || getDetailValue('seller') || '';
+      const saleType = getDetailValue('sale type') || getDetailValue('sale') || '';
+
+      // Detect insurance seller
+      const insuranceCompanies = [
+        'state farm', 'allstate', 'geico', 'progressive', 'usaa', 'liberty mutual',
+        'farmers', 'nationwide', 'travelers', 'american family', 'insurance', 'ins co'
+      ];
+      const sellerLower = seller.toLowerCase();
+      const isInsurance = insuranceCompanies.some(ins => sellerLower.includes(ins));
+
+      // Auction status
+      let auctionStatus = 'Active';
+      let auctionEnded = false;
+      const allText = document.body.innerText.toLowerCase();
+      if (allText.includes('sold') || allText.includes('sale ended') || allText.includes('auction ended')) {
+        auctionStatus = 'Sale Ended';
+        auctionEnded = true;
+      }
+
+      // Parse year, make, model from title
+      let year = 0, make = '', model = '';
+      const titleParts = title.match(/(\d{4})\s+(\S+)\s+(.+)/);
+      if (titleParts) {
+        year = parseInt(titleParts[1]);
+        make = titleParts[2];
+        model = titleParts[3];
+      }
+
+      return {
+        title, year, make, model, vin, currentBid, buyNowPrice, images, location,
+        damageType, secondaryDamage, odometer, titleStatus, engineType, transmission,
+        driveType, fuelType, color, bodyStyle, hasKeys, auctionDate, auctionDateTime,
+        auctionStatus, auctionEnded, seller, saleType, isInsurance
+      };
+    });
+
+    await browser.close();
+
+    const result = {
+      title: vehicleData.title || 'Unknown Vehicle',
+      year: vehicleData.year || 0,
+      make: vehicleData.make || '',
+      model: vehicleData.model || '',
+      vin: vehicleData.vin,
+      lotNumber: stockNumber,
+      currentBid: vehicleData.currentBid || 0,
+      buyNowPrice: vehicleData.buyNowPrice,
+      imageUrl: vehicleData.images[0] || null,
+      images: vehicleData.images,
+      location: vehicleData.location || '',
+      damageType: vehicleData.damageType || '',
+      secondaryDamage: vehicleData.secondaryDamage || '',
+      odometer: vehicleData.odometer || '',
+      titleStatus: vehicleData.titleStatus || '',
+      engineType: vehicleData.engineType || '',
+      transmission: vehicleData.transmission || '',
+      driveType: vehicleData.driveType || '',
+      fuelType: vehicleData.fuelType || '',
+      color: vehicleData.color || '',
+      bodyStyle: vehicleData.bodyStyle || '',
+      hasKeys: vehicleData.hasKeys || false,
+      auctionDate: vehicleData.auctionDate || 'See listing',
+      auctionDateTime: vehicleData.auctionDateTime,
+      auctionStatus: vehicleData.auctionStatus || 'Active',
+      auctionEnded: vehicleData.auctionEnded || false,
+      seller: vehicleData.seller || '',
+      isInsurance: vehicleData.isInsurance || false,
+      saleType: vehicleData.saleType || '',
+      source: 'iaai',
+    };
+
+    console.log('IAAI scrape complete:', result.title);
+    console.log('Images found:', result.images.length);
+    res.json({ success: true, vehicle: result });
+
+  } catch (error) {
+    console.error('IAAI scrape error:', error);
+    if (browser) await browser.close();
+    res.status(500).json({ error: 'Failed to scrape IAAI vehicle data', details: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Scraper service running on port ${PORT}`);
 });
