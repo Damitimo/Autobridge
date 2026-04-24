@@ -8,7 +8,7 @@ import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, AlertCircle, Link2, Car, DollarSign, ExternalLink, Info, ChevronLeft, ChevronRight, X, ZoomIn } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle, Link2, Car, DollarSign, ExternalLink, Info, ChevronLeft, ChevronRight, X, ZoomIn, FileSearch, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import CostBreakdown from '@/components/cost-breakdown';
 import AuctionCountdown from '@/components/auction-countdown';
 
@@ -78,6 +78,13 @@ export default function NewBidRequestPage() {
   const [fundWalletInfo, setFundWalletInfo] = useState({ required: 0, available: 0 });
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
+  // VIN Check state
+  const [vinCheckLoading, setVinCheckLoading] = useState(false);
+  const [vinCheckReport, setVinCheckReport] = useState<any>(null);
+  const [vinCheckError, setVinCheckError] = useState('');
+  const [showVinReport, setShowVinReport] = useState(false);
+  const VIN_CHECK_PRICE = 15; // USD
+
   // Check for URL parameter and auto-fetch
   useEffect(() => {
     const urlParam = searchParams.get('url');
@@ -115,6 +122,65 @@ export default function NewBidRequestPage() {
       }
     } catch (err) {
       console.error('Failed to fetch balance:', err);
+    }
+  };
+
+  // VIN Check function
+  const handleVinCheck = async () => {
+    if (!vehicleDetails?.vin) {
+      setVinCheckError('VIN not available');
+      return;
+    }
+
+    setVinCheckLoading(true);
+    setVinCheckError('');
+
+    try {
+      const token = localStorage.getItem('token');
+
+      // First check if we already have the report
+      const checkResponse = await fetch(`/api/vin-check?vin=${vehicleDetails.vin}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const checkData = await checkResponse.json();
+
+      if (checkData.hasReport) {
+        setVinCheckReport(checkData.report);
+        setShowVinReport(true);
+        setVinCheckLoading(false);
+        return;
+      }
+
+      // Check if user can afford it
+      if (!checkData.canAfford) {
+        setVinCheckError(`Insufficient balance. You need $${VIN_CHECK_PRICE}. Available: $${checkData.walletBalance.toFixed(2)}`);
+        setVinCheckLoading(false);
+        return;
+      }
+
+      // Purchase the report
+      const response = await fetch('/api/vin-check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ vin: vehicleDetails.vin }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setVinCheckReport(data.report);
+        setShowVinReport(true);
+        setWalletBalance(data.newBalance);
+      } else {
+        setVinCheckError(data.error || data.message || 'Failed to fetch VIN report');
+      }
+    } catch (err) {
+      setVinCheckError('An error occurred. Please try again.');
+    } finally {
+      setVinCheckLoading(false);
     }
   };
 
@@ -428,8 +494,31 @@ export default function NewBidRequestPage() {
                     <span className="font-semibold">{vehicleDetails.lotNumber}</span>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-3 col-span-2">
-                    <span className="text-gray-500 block text-xs">VIN</span>
-                    <span className="font-semibold font-mono text-xs">{vehicleDetails.vin || 'See listing'}</span>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-gray-500 block text-xs">VIN</span>
+                        <span className="font-semibold font-mono text-xs">{vehicleDetails.vin || 'See listing'}</span>
+                      </div>
+                      {vehicleDetails.vin && (
+                        <button
+                          onClick={handleVinCheck}
+                          disabled={vinCheckLoading}
+                          className="flex items-center gap-1.5 bg-brand-dark hover:bg-brand-dark/90 text-white text-xs px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          {vinCheckLoading ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : vinCheckReport ? (
+                            <CheckCircle className="h-3 w-3" />
+                          ) : (
+                            <FileSearch className="h-3 w-3" />
+                          )}
+                          {vinCheckReport ? 'View Report' : `VIN Check ($${VIN_CHECK_PRICE})`}
+                        </button>
+                      )}
+                    </div>
+                    {vinCheckError && (
+                      <p className="text-red-500 text-xs mt-1">{vinCheckError}</p>
+                    )}
                   </div>
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                     <span className="text-red-600 block text-xs">Primary Damage</span>
@@ -781,6 +870,194 @@ export default function NewBidRequestPage() {
             submitBid();
           }}
         />
+
+        {/* VIN Report Modal */}
+        {showVinReport && vinCheckReport && (
+          <div
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowVinReport(false)}
+          >
+            <div
+              className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Vehicle History Report</h3>
+                  <p className="text-sm text-gray-500 font-mono">{vinCheckReport.vin}</p>
+                </div>
+                <button
+                  onClick={() => setShowVinReport(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-6 space-y-6">
+                {/* Vehicle Summary */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-gray-700 mb-2">Vehicle Information</h4>
+                  <p className="text-lg font-bold">
+                    {vinCheckReport.reportData?.year} {vinCheckReport.reportData?.make} {vinCheckReport.reportData?.model}
+                  </p>
+                </div>
+
+                {/* Key Findings - Alert Cards */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Total Loss */}
+                  <div className={`rounded-lg p-4 ${vinCheckReport.totalLoss ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      {vinCheckReport.totalLoss ? (
+                        <XCircle className="h-5 w-5 text-red-600" />
+                      ) : (
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                      )}
+                      <span className="font-semibold text-sm">Total Loss</span>
+                    </div>
+                    <p className={`text-lg font-bold ${vinCheckReport.totalLoss ? 'text-red-700' : 'text-green-700'}`}>
+                      {vinCheckReport.totalLoss ? 'YES - Salvage/Total Loss' : 'No Record'}
+                    </p>
+                  </div>
+
+                  {/* Odometer Rollback */}
+                  <div className={`rounded-lg p-4 ${vinCheckReport.odometerRollback ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      {vinCheckReport.odometerRollback ? (
+                        <XCircle className="h-5 w-5 text-red-600" />
+                      ) : (
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                      )}
+                      <span className="font-semibold text-sm">Odometer Rollback</span>
+                    </div>
+                    <p className={`text-lg font-bold ${vinCheckReport.odometerRollback ? 'text-red-700' : 'text-green-700'}`}>
+                      {vinCheckReport.odometerRollback ? 'WARNING - Rollback Detected' : 'No Issues'}
+                    </p>
+                  </div>
+
+                  {/* Accidents */}
+                  <div className={`rounded-lg p-4 ${(vinCheckReport.accidentCount || 0) > 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-green-50 border border-green-200'}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      {(vinCheckReport.accidentCount || 0) > 0 ? (
+                        <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                      ) : (
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                      )}
+                      <span className="font-semibold text-sm">Accidents</span>
+                    </div>
+                    <p className={`text-lg font-bold ${(vinCheckReport.accidentCount || 0) > 0 ? 'text-yellow-700' : 'text-green-700'}`}>
+                      {vinCheckReport.accidentCount || 0} Record(s)
+                    </p>
+                  </div>
+
+                  {/* Owners */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Info className="h-5 w-5 text-blue-600" />
+                      <span className="font-semibold text-sm">Previous Owners</span>
+                    </div>
+                    <p className="text-lg font-bold text-blue-700">
+                      {vinCheckReport.ownerCount || 'Unknown'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Additional Info */}
+                <div className="grid grid-cols-2 gap-3">
+                  {vinCheckReport.odometer && (
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <span className="text-gray-500 text-xs block">Last Reported Odometer</span>
+                      <span className="font-semibold">{vinCheckReport.odometer.toLocaleString()} mi</span>
+                    </div>
+                  )}
+                  {vinCheckReport.reportData?.recallCount !== undefined && (
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <span className="text-gray-500 text-xs block">Open Recalls</span>
+                      <span className={`font-semibold ${vinCheckReport.reportData.recallCount > 0 ? 'text-orange-600' : ''}`}>
+                        {vinCheckReport.reportData.recallCount}
+                      </span>
+                    </div>
+                  )}
+                  {vinCheckReport.reportData?.theftRecords !== undefined && (
+                    <div className={`rounded-lg p-3 ${vinCheckReport.reportData.theftRecords > 0 ? 'bg-red-50' : 'bg-gray-50'}`}>
+                      <span className="text-gray-500 text-xs block">Theft Records</span>
+                      <span className={`font-semibold ${vinCheckReport.reportData.theftRecords > 0 ? 'text-red-600' : ''}`}>
+                        {vinCheckReport.reportData.theftRecords > 0 ? `${vinCheckReport.reportData.theftRecords} Record(s)` : 'None'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Title Brands */}
+                {vinCheckReport.titleBrands && vinCheckReport.titleBrands.length > 0 && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-yellow-800 mb-2 flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5" />
+                      Title Brands
+                    </h4>
+                    <ul className="space-y-1">
+                      {vinCheckReport.titleBrands.map((brand: string, idx: number) => (
+                        <li key={idx} className="text-yellow-700 text-sm">• {brand}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Title History */}
+                {vinCheckReport.reportData?.titleHistory && vinCheckReport.reportData.titleHistory.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-gray-700 mb-3">Title History</h4>
+                    <div className="space-y-2">
+                      {vinCheckReport.reportData.titleHistory.map((entry: any, idx: number) => (
+                        <div key={idx} className="bg-gray-50 rounded-lg p-3 flex items-center justify-between">
+                          <div>
+                            <span className="font-medium">{entry.title}</span>
+                            <span className="text-gray-500 text-sm ml-2">({entry.state})</span>
+                          </div>
+                          <span className="text-gray-500 text-sm">{entry.date}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Report Links */}
+                <div className="flex gap-3">
+                  {vinCheckReport.reportUrl && (
+                    <a
+                      href={vinCheckReport.reportUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 bg-brand-dark hover:bg-brand-dark/90 text-white text-center py-3 px-4 rounded-lg font-medium flex items-center justify-center gap-2"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      View Full Report
+                    </a>
+                  )}
+                  {vinCheckReport.reportPdf && (
+                    <a
+                      href={vinCheckReport.reportPdf}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 text-center py-3 px-4 rounded-lg font-medium flex items-center justify-center gap-2"
+                    >
+                      <FileSearch className="h-4 w-4" />
+                      Download PDF
+                    </a>
+                  )}
+                </div>
+
+                {/* Purchase Info */}
+                <div className="text-center text-xs text-gray-400 pt-4 border-t">
+                  <p>Report purchased on {new Date(vinCheckReport.purchasedAt || vinCheckReport.createdAt).toLocaleDateString()}</p>
+                  <p>Provider: {vinCheckReport.provider?.toUpperCase() || 'VinAudit'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Lightbox Modal */}
         {lightboxOpen && vehicleDetails.images && vehicleDetails.images.length > 0 && (

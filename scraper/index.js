@@ -187,7 +187,8 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
             return false;
           }
           // Reject lot number patterns
-          if (/^lot[:\s#]*\d+/i.test(val) || /^\d{6,}$/.test(val.trim())) {
+          if (/^lot[\s]*(?:number)?[:\s#]*\d+/i.test(val) || /^\d{6,}$/.test(val.trim()) ||
+              /lot\s*(?:number|#)?\s*:?\s*\d{5,}/i.test(val)) {
             return false;
           }
           // Reject common UI elements
@@ -918,15 +919,32 @@ app.post('/scrape/iaai', authenticate, async (req, res) => {
 
     page.on('response', async response => {
       const responseUrl = response.url();
-      if (responseUrl.includes('/api/') && responseUrl.includes('vehicle')) {
+      // IAAI uses various API endpoints for vehicle data
+      if (responseUrl.includes('GetVehicleDetailsViewModel') ||
+          responseUrl.includes('vehicledetails') ||
+          responseUrl.includes('VehicleDetail') ||
+          (responseUrl.includes('/api/') && (responseUrl.includes('vehicle') || responseUrl.includes('stock')))) {
         try {
-          const json = await response.json();
-          if (json) {
-            apiVehicleData = json;
-            console.log('Captured IAAI API data');
+          const text = await response.text();
+          // Try to parse as JSON
+          try {
+            const json = JSON.parse(text);
+            if (json && (json.vehicleInfo || json.vehicle || json.data || json.VehicleInfo)) {
+              apiVehicleData = json.vehicleInfo || json.vehicle || json.data || json.VehicleInfo || json;
+              console.log('Captured IAAI API data from:', responseUrl);
+            }
+          } catch (e) {
+            // Check if it's embedded in the HTML response (SSR)
+            const jsonMatch = text.match(/"vehicleInfo"\s*:\s*({[^}]+})/);
+            if (jsonMatch) {
+              try {
+                apiVehicleData = JSON.parse(jsonMatch[1]);
+                console.log('Extracted vehicle info from HTML');
+              } catch (e) {}
+            }
           }
         } catch (e) {
-          // Not JSON response
+          // Response not readable
         }
       }
     });
@@ -935,398 +953,296 @@ app.post('/scrape/iaai', authenticate, async (req, res) => {
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
     await page.waitForSelector('body', { timeout: 10000 });
 
-    // Wait for dynamic content to load
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    // Wait longer for dynamic content to load (IAAI uses heavy JS)
+    await new Promise(resolve => setTimeout(resolve, 6000));
 
     // Scroll to trigger lazy loading
-    await page.evaluate(() => window.scrollBy(0, 500));
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await page.evaluate(() => window.scrollBy(0, 800));
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Extract vehicle data
+    // Extract vehicle data using IAAI's specific structure
     const vehicleData = await page.evaluate(() => {
-      const getData = (selector, attribute) => {
+      // Helper to safely get text content
+      const getText = (selector) => {
         const el = document.querySelector(selector);
-        if (!el) return '';
-        return attribute ? (el.getAttribute(attribute) || '') : (el.textContent?.trim() || '');
+        return el ? el.textContent?.trim() || '' : '';
       };
 
-      // Title - IAAI typically uses h1 or specific title elements
-      let title = getData('h1') ||
-                  getData('.vehicle-title') ||
-                  getData('[data-testid="vehicle-title"]') ||
-                  getData('.pdp-vehicle-title') ||
-                  getData('.stock-title');
+      // IAAI uses a specific structure: Look for Next.js __NEXT_DATA__ or embedded JSON
+      let vehicleJson = null;
+      const scripts = document.querySelectorAll('script');
 
-      // Images - IAAI uses various CDN patterns
-      let images = [];
+      for (const script of scripts) {
+        const content = script.textContent || '';
 
-      // Method 1: Look for image gallery/carousel images
-      const imageSelectors = [
-        '.gallery-image img',
-        '.image-gallery img',
-        '.pdp-gallery img',
-        '.vehicle-images img',
-        '.carousel-item img',
-        '.slick-slide img',
-        '[class*="gallery"] img',
-        '[class*="carousel"] img',
-        '[class*="slider"] img',
-        '.thumbnail-list img',
-        '.thumb-image img',
-        'img[src*="vis.iaai.com"]',
-        'img[src*="images.iaai.com"]',
-        'img[data-src*="vis.iaai.com"]',
-        'img[data-src*="images.iaai.com"]',
-      ];
+        // Look for __NEXT_DATA__ (Next.js app)
+        if (script.id === '__NEXT_DATA__') {
+          try {
+            const nextData = JSON.parse(content);
+            vehicleJson = nextData?.props?.pageProps?.vehicleDetails ||
+                         nextData?.props?.pageProps?.data ||
+                         nextData?.props?.pageProps;
+            if (vehicleJson) console.log('Found NEXT_DATA');
+          } catch (e) {}
+        }
 
-      for (const selector of imageSelectors) {
-        const imgElements = document.querySelectorAll(selector);
-        imgElements.forEach(img => {
-          let src = img.getAttribute('src') || img.getAttribute('data-src') ||
-                    img.getAttribute('data-lazy') || img.getAttribute('data-original') || '';
-          // Convert thumbnail to full size
-          src = src.replace(/\/thumb\//i, '/full/')
-                   .replace(/_thumb\./i, '.')
-                   .replace(/\?.*$/, ''); // Remove query params for cleaner URLs
-          if (src && (src.includes('iaai.com') || src.includes('vis.iaai') || src.includes('images.iaai'))) {
-            images.push(src);
+        // Look for window.__INITIAL_STATE__ or similar
+        const statePatterns = [
+          /window\.__INITIAL_STATE__\s*=\s*({[\s\S]+?});?\s*(?:<\/script>|$)/,
+          /window\.__PRELOADED_STATE__\s*=\s*({[\s\S]+?});?\s*(?:<\/script>|$)/,
+          /"vehicleDetails"\s*:\s*({[^}]+})/,
+        ];
+
+        for (const pattern of statePatterns) {
+          const match = content.match(pattern);
+          if (match) {
+            try {
+              vehicleJson = JSON.parse(match[1]);
+              console.log('Found state JSON');
+            } catch (e) {}
           }
-        });
-      }
-
-      // Method 2: Look in script tags for image URLs
-      if (images.length <= 1) {
-        const scripts = document.querySelectorAll('script');
-        scripts.forEach(script => {
-          const content = script.textContent || '';
-          // IAAI image URL patterns
-          const imagePatterns = [
-            /https?:\/\/vis\.iaai\.com[^"'\s]+\.(?:jpg|jpeg|png|webp)/gi,
-            /https?:\/\/images\.iaai\.com[^"'\s]+\.(?:jpg|jpeg|png|webp)/gi,
-            /https?:\/\/[^"'\s]*iaai[^"'\s]*\/[^"'\s]+\.(?:jpg|jpeg|png|webp)/gi,
-          ];
-          for (const pattern of imagePatterns) {
-            const matches = content.match(pattern);
-            if (matches) {
-              matches.forEach(imgUrl => {
-                // Clean up and convert to full size
-                let cleanUrl = imgUrl.replace(/\/thumb\//i, '/full/')
-                                     .replace(/_thumb\./i, '.')
-                                     .replace(/\\u002F/g, '/')
-                                     .replace(/\\/g, '');
-                images.push(cleanUrl);
-              });
-            }
-          }
-        });
-      }
-
-      // Method 3: Check for JSON data with images
-      if (images.length <= 1) {
-        const scripts = document.querySelectorAll('script');
-        scripts.forEach(script => {
-          const content = script.textContent || '';
-          // Look for image arrays in JSON
-          const jsonMatch = content.match(/["\']images?["\']:\s*\[([^\]]+)\]/i);
-          if (jsonMatch) {
-            const urlMatches = jsonMatch[1].match(/https?:\/\/[^"'\s,]+/g);
-            if (urlMatches) {
-              images = [...images, ...urlMatches.filter(u => u.includes('iaai'))];
-            }
-          }
-        });
-      }
-
-      // Method 4: OG image fallback
-      if (images.length === 0) {
-        const ogImage = document.querySelector('meta[property="og:image"]');
-        if (ogImage) {
-          const ogUrl = ogImage.getAttribute('content');
-          if (ogUrl) images.push(ogUrl);
         }
       }
 
-      // Dedupe and filter images
+      // Title from page
+      let title = getText('h1') || getText('[class*="title"]') || '';
+
+      // Parse year/make/model from title (format: "2024 MERCEDES-BENZ E 350")
+      let year = 0, make = '', model = '';
+      const titleMatch = title.match(/^(\d{4})\s+([A-Z0-9-]+)\s+(.+)$/i);
+      if (titleMatch) {
+        year = parseInt(titleMatch[1]);
+        make = titleMatch[2].toUpperCase();
+        model = titleMatch[3];
+      }
+
+      // Images - Multiple methods
+      let images = [];
+
+      // Method 1: All img tags with IAAI domains
+      document.querySelectorAll('img').forEach(img => {
+        const src = img.src || img.dataset?.src || '';
+        if (src && src.includes('iaai.com') && !src.includes('placeholder') && !src.includes('logo')) {
+          // Convert to full resolution
+          let fullSrc = src;
+          if (src.includes('/resizer?')) {
+            // IAAI resizer URL - extract original and use larger size
+            fullSrc = src.replace(/imageKeys=([^&]+)/, (m, keys) => {
+              return 'imageKeys=' + keys;
+            }).replace(/width=\d+/, 'width=1024').replace(/height=\d+/, 'height=768');
+          }
+          images.push(fullSrc);
+        }
+      });
+
+      // Method 2: Look in script content for image URLs
+      scripts.forEach(script => {
+        const content = script.textContent || '';
+        const imageMatches = content.match(/https?:\/\/(?:vis|images)\.iaai\.com[^"'\s\\]+/gi);
+        if (imageMatches) {
+          imageMatches.forEach(url => {
+            const cleanUrl = url.replace(/\\u002F/g, '/').replace(/\\/g, '');
+            if (cleanUrl.includes('.jpg') || cleanUrl.includes('.png') || cleanUrl.includes('.webp')) {
+              images.push(cleanUrl);
+            }
+          });
+        }
+      });
+
+      // Dedupe images
       images = [...new Set(images)].filter(src => src && src.startsWith('http'));
 
-      // Helper to get detail values from IAAI page structure
-      const getDetailValue = (label) => {
-        const labelLower = label.toLowerCase();
+      // IAAI specific data extraction from the data-* attributes or structured content
+      // IAAI typically uses a two-column layout: label on left, value on right
+      const getValueForLabel = (labelText) => {
+        const labelLower = labelText.toLowerCase().trim();
 
-        // Method 1: Look for label:value pairs in tables or lists
-        const rows = document.querySelectorAll('tr, li, .detail-row, .info-row, [class*="detail"], [class*="info-item"]');
-        for (const row of rows) {
-          const text = row.textContent?.toLowerCase() || '';
-          if (text.includes(labelLower)) {
-            // Try to extract value
-            const cells = row.querySelectorAll('td, span, dd, .value, [class*="value"]');
-            for (const cell of cells) {
-              const cellText = cell.textContent?.trim();
-              if (cellText && !cellText.toLowerCase().includes(labelLower) && cellText.length < 200) {
-                return cellText;
+        // Method 1: Look for table rows with specific structure
+        const allRows = document.querySelectorAll('tr');
+        for (const row of allRows) {
+          const cells = row.querySelectorAll('td, th');
+          if (cells.length >= 2) {
+            const labelCell = cells[0].textContent?.toLowerCase().trim() || '';
+            if (labelCell.includes(labelLower) || labelLower.includes(labelCell)) {
+              const valueText = cells[1].textContent?.trim() || '';
+              if (valueText && valueText.length < 200 && !valueText.toLowerCase().includes(labelLower)) {
+                return valueText;
               }
             }
           }
         }
 
-        // Method 2: dt/dd pairs
-        const dts = document.querySelectorAll('dt, .label, [class*="label"]');
-        for (const dt of dts) {
-          if (dt.textContent?.toLowerCase().includes(labelLower)) {
-            const dd = dt.nextElementSibling;
-            if (dd) return dd.textContent?.trim() || '';
+        // Method 2: Look for divs/spans with label-value pairs
+        const containers = document.querySelectorAll('[class*="detail"], [class*="info"], [class*="spec"], dl, .row');
+        for (const container of containers) {
+          const text = container.textContent || '';
+          const textLower = text.toLowerCase();
+          if (textLower.includes(labelLower)) {
+            // Try to find the value after the label
+            const children = container.querySelectorAll('span, div, dd, p');
+            let foundLabel = false;
+            for (const child of children) {
+              const childText = child.textContent?.trim() || '';
+              const childLower = childText.toLowerCase();
+              if (childLower.includes(labelLower)) {
+                foundLabel = true;
+                continue;
+              }
+              if (foundLabel && childText && childText.length < 100 && !childLower.includes(labelLower)) {
+                // Check it's not just whitespace or common UI text
+                if (!/^(loading|n\/a|unknown|see|view|click)$/i.test(childText)) {
+                  return childText;
+                }
+              }
+            }
           }
         }
 
-        // Method 3: Search in page text with patterns
-        const allText = document.body.innerText;
-        const patterns = [
-          new RegExp(label + '[:\\s]+([^\\n]+)', 'i'),
-          new RegExp(label + '\\s*([^\\n]{1,100})', 'i'),
-        ];
-        for (const pattern of patterns) {
-          const match = allText.match(pattern);
-          if (match && match[1].trim().length < 100) {
-            return match[1].trim();
+        // Method 3: Regex search in body text (last resort)
+        const bodyText = document.body.innerText;
+        const pattern = new RegExp(labelText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[:\\s]+([^\\n]{1,100})', 'i');
+        const match = bodyText.match(pattern);
+        if (match) {
+          const value = match[1].trim();
+          // Validate it's not another label or garbage
+          if (value && !/^[a-z]+:$/i.test(value) && !value.includes('|') && !value.includes('Privacy')) {
+            return value;
           }
         }
 
         return '';
       };
 
-      // Extract from embedded JSON/script data
-      let scriptData = {};
-      const scripts = document.querySelectorAll('script');
-      scripts.forEach(script => {
-        const content = script.textContent || '';
-
-        // Look for various JSON patterns
-        const patterns = [
-          /window\.__INITIAL_STATE__\s*=\s*({.+?});/,
-          /window\.__DATA__\s*=\s*({.+?});/,
-          /"vehicleDetails"\s*:\s*({[^}]+})/,
-          /"vehicle"\s*:\s*({[^}]+})/,
-        ];
-
-        for (const pattern of patterns) {
-          const match = content.match(pattern);
-          if (match) {
-            try {
-              const parsed = JSON.parse(match[1]);
-              scriptData = { ...scriptData, ...parsed };
-            } catch (e) {}
-          }
-        }
-
-        // Extract individual fields
-        const fieldPatterns = {
-          vin: [/"vin"\s*:\s*"([A-HJ-NPR-Z0-9]{17})"/i],
-          odometer: [/"odometer"\s*:\s*(\d+)/, /"mileage"\s*:\s*(\d+)/],
-          location: [/"location"\s*:\s*"([^"]+)"/, /"branch"\s*:\s*"([^"]+)"/, /"yardName"\s*:\s*"([^"]+)"/],
-          damageType: [/"primaryDamage"\s*:\s*"([^"]+)"/, /"damage"\s*:\s*"([^"]+)"/],
-          seller: [/"seller"\s*:\s*"([^"]+)"/],
-        };
-
-        for (const [field, patterns] of Object.entries(fieldPatterns)) {
-          for (const pattern of patterns) {
-            const match = content.match(pattern);
-            if (match && !scriptData[field]) {
-              scriptData[field] = match[1];
-            }
-          }
-        }
-      });
-
-      // VIN extraction
-      let vin = '';
-      if (scriptData.vin && /^[A-HJ-NPR-Z0-9]{17}$/i.test(scriptData.vin)) {
-        vin = scriptData.vin.toUpperCase();
-      }
-      if (!vin) {
-        const vinText = getDetailValue('VIN');
-        const vinMatch = vinText.match(/([A-HJ-NPR-Z0-9]{17})/i);
-        if (vinMatch) vin = vinMatch[1].toUpperCase();
-      }
-      if (!vin) {
-        const html = document.body.innerHTML;
-        const vinMatch = html.match(/VIN[:\s#]*([A-HJ-NPR-Z0-9]{17})/i);
-        if (vinMatch) vin = vinMatch[1].toUpperCase();
-      }
-
-      // Current bid
-      let currentBid = 0;
-      const bidSelectors = [
-        '.current-bid',
-        '.high-bid',
-        '[class*="bid-amount"]',
-        '[class*="currentBid"]',
-        '[class*="highBid"]',
-        '.bid-price',
-        '.price',
-      ];
-      for (const selector of bidSelectors) {
-        const el = document.querySelector(selector);
-        if (el) {
-          const text = el.textContent || '';
-          const match = text.match(/\$?\s*([\d,]+)/);
-          if (match) {
-            const bid = parseInt(match[1].replace(/,/g, ''));
-            if (bid > currentBid) currentBid = bid;
-          }
-        }
-      }
-
-      // Look for bid in scripts
-      if (currentBid === 0) {
-        const scripts = document.querySelectorAll('script');
-        scripts.forEach(script => {
-          const content = script.textContent || '';
-          const patterns = [
-            /"currentBid"\s*:\s*(\d+)/,
-            /"highBid"\s*:\s*(\d+)/,
-            /"bidAmount"\s*:\s*(\d+)/,
-          ];
-          for (const pattern of patterns) {
-            const match = content.match(pattern);
-            if (match && parseInt(match[1]) > currentBid) {
-              currentBid = parseInt(match[1]);
-            }
-          }
-        });
-      }
-
-      // Buy now price
-      let buyNowPrice;
-      const buyNowText = getDetailValue('buy now') || getDetailValue('buy it now');
-      const buyNowMatch = buyNowText.match(/[\d,]+/);
-      if (buyNowMatch) buyNowPrice = parseInt(buyNowMatch[0].replace(/,/g, ''));
-
-      // Odometer
-      let odometer = '';
-      if (scriptData.odometer) {
-        odometer = parseInt(scriptData.odometer).toLocaleString();
-      }
-      if (!odometer) {
-        const odoText = getDetailValue('odometer') || getDetailValue('mileage');
-        const odoMatch = odoText.match(/([0-9,]+)/);
-        if (odoMatch) {
-          const num = parseInt(odoMatch[1].replace(/,/g, ''));
-          if (num > 0 && num < 1000000) odometer = num.toLocaleString();
-        }
-      }
-
-      // Damage type
-      let damageType = scriptData.damageType || getDetailValue('primary damage') || getDetailValue('damage');
-
-      // Secondary damage
-      const secondaryDamage = getDetailValue('secondary damage') || '';
-
-      // Location
-      let location = scriptData.location || getDetailValue('location') || getDetailValue('branch') || getDetailValue('yard');
-
-      // Auction date
-      let auctionDate = getDetailValue('auction date') || getDetailValue('sale date') || 'See listing';
-      let auctionDateTime = null;
-      if (auctionDate && auctionDate !== 'See listing') {
+      // Try to extract data from __NEXT_DATA__ first (IAAI uses Next.js)
+      let nextData = null;
+      const nextDataScript = document.getElementById('__NEXT_DATA__');
+      if (nextDataScript) {
         try {
-          const parsed = new Date(auctionDate);
-          if (!isNaN(parsed.getTime())) {
-            auctionDateTime = parsed.toISOString();
-          }
+          nextData = JSON.parse(nextDataScript.textContent || '');
+          console.log('Found __NEXT_DATA__');
         } catch (e) {}
       }
 
-      // Title/Doc type
-      let titleStatus = getDetailValue('title') || getDetailValue('doc type') || getDetailValue('title type') || '';
+      // Extract from Next.js props
+      const pageProps = nextData?.props?.pageProps || {};
+      const vehicleDetails = pageProps.vehicleDetails || pageProps.vehicle || pageProps.data || {};
 
-      // Other fields
-      const engineType = getDetailValue('engine') || '';
-      const transmission = getDetailValue('transmission') || '';
-      const driveType = getDetailValue('drive') || getDetailValue('drivetrain') || '';
-      const fuelType = getDetailValue('fuel') || '';
-      const color = getDetailValue('color') || '';
-      const bodyStyle = getDetailValue('body') || getDetailValue('body style') || '';
-      const hasKeys = (getDetailValue('keys') || '').toLowerCase().includes('yes');
+      // Extract VIN - prefer from Next data
+      let vin = '';
+      if (vehicleDetails.vin && /^[A-HJ-NPR-Z0-9]{17}$/i.test(vehicleDetails.vin)) {
+        vin = vehicleDetails.vin.toUpperCase();
+      }
+      // Fallback: Look for VIN pattern in page HTML
+      if (!vin) {
+        const html = document.body.innerHTML;
+        // Look for VIN in specific contexts (near "VIN" label)
+        const vinContextMatch = html.match(/VIN[:\s]*<[^>]*>([A-HJ-NPR-Z0-9]{17})<\/[^>]+>/i);
+        if (vinContextMatch) {
+          vin = vinContextMatch[1].toUpperCase();
+        }
+      }
+      if (!vin) {
+        // Search for 17-char alphanumeric strings that look like VINs
+        const potentialVins = document.body.innerText.match(/\b[A-HJ-NPR-Z0-9]{17}\b/g) || [];
+        for (const v of potentialVins) {
+          // VINs typically start with a digit or letter (not pattern-like)
+          if (/^[1-9A-HJ-NPR-Z][A-HJ-NPR-Z0-9]{16}$/i.test(v)) {
+            vin = v.toUpperCase();
+            break;
+          }
+        }
+      }
 
-      // Vehicle running condition - extract from Highlights/Condition field
+      // Current bid - look for bid/price elements
+      let currentBid = 0;
+      const priceElements = document.querySelectorAll('[class*="bid"], [class*="price"], [class*="amount"]');
+      for (const el of priceElements) {
+        const text = el.textContent || '';
+        const match = text.match(/\$?\s*([\d,]+)/);
+        if (match) {
+          const val = parseInt(match[1].replace(/,/g, ''));
+          if (val > currentBid && val < 1000000) currentBid = val;
+        }
+      }
+
+      // Helper to clean bad IAAI values (section headers)
+      const cleanValue = (val) => {
+        if (!val) return '';
+        const badValues = ['vehicle information', 'bid information', 'at the branch',
+                          'iaa |', 'two westbrook', 'privacy', 'cookie', 'see listing'];
+        const lower = val.toLowerCase();
+        if (badValues.some(b => lower.includes(b)) || lower.length > 100) return '';
+        return val;
+      };
+
+      // Extract other details - prefer Next.js data, fall back to DOM
+      const vd = vehicleDetails; // shorthand
+      const odometer = cleanValue(vd.odometer || vd.mileage) || cleanValue(getValueForLabel('Odometer')) || cleanValue(getValueForLabel('Mileage')) || '';
+      const damageType = cleanValue(vd.primaryDamage || vd.damage) || cleanValue(getValueForLabel('Primary Damage')) || cleanValue(getValueForLabel('Damage')) || '';
+      const secondaryDamage = cleanValue(vd.secondaryDamage) || cleanValue(getValueForLabel('Secondary Damage')) || '';
+      const location = cleanValue(vd.location || vd.branch || vd.yardName || vd.branchName) || cleanValue(getValueForLabel('Location')) || cleanValue(getValueForLabel('Branch')) || '';
+      const titleStatus = cleanValue(vd.title || vd.titleType || vd.docType) || cleanValue(getValueForLabel('Title')) || cleanValue(getValueForLabel('Doc Type')) || '';
+      const engineType = cleanValue(vd.engine || vd.engineType) || cleanValue(getValueForLabel('Engine')) || '';
+      const transmission = cleanValue(vd.transmission) || cleanValue(getValueForLabel('Transmission')) || '';
+      const driveType = cleanValue(vd.drive || vd.driveType || vd.driveTrain) || cleanValue(getValueForLabel('Drive')) || '';
+      const fuelType = cleanValue(vd.fuel || vd.fuelType) || cleanValue(getValueForLabel('Fuel')) || '';
+      const color = cleanValue(vd.color || vd.exteriorColor) || cleanValue(getValueForLabel('Color')) || '';
+      const bodyStyle = cleanValue(vd.body || vd.bodyStyle) || cleanValue(getValueForLabel('Body')) || '';
+      const seller = cleanValue(vd.seller || vd.sellerName) || cleanValue(getValueForLabel('Seller')) || '';
+      const saleType = cleanValue(vd.saleType || vd.sale) || cleanValue(getValueForLabel('Sale Type')) || '';
+
+      // Keys
+      const keysText = getValueForLabel('Keys') || '';
+      const hasKeys = keysText.toLowerCase().includes('yes');
+
+      // Auction date
+      let auctionDate = getValueForLabel('Auction Date') || getValueForLabel('Sale Date') || 'See listing';
+      let auctionDateTime = null;
+
+      // Running condition
       let highlights = '';
       let isRunning = false;
-
-      // Method 1: Look for highlights or condition section
-      const highlightsText = getDetailValue('highlights') || getDetailValue('condition') ||
-                            getDetailValue('run condition') || getDetailValue('vehicle condition') || '';
+      const highlightsText = cleanValue(getValueForLabel('Highlights')) || cleanValue(getValueForLabel('Condition')) || cleanValue(getValueForLabel('Run Condition')) || '';
       if (highlightsText) {
         highlights = highlightsText;
       }
 
-      // Method 2: Search in page text for running status
-      if (!highlights) {
-        const allText = document.body.innerText.toLowerCase();
-        if (allText.includes('run and drive')) highlights = 'Run and Drive';
-        else if (allText.includes('enhanced vehicle')) highlights = 'Enhanced Vehicle';
-        else if (allText.includes('starts')) highlights = 'Starts';
-        else if (allText.includes('stationary')) highlights = 'Stationary';
-        else if (allText.includes('engine starts')) highlights = 'Engine Starts';
+      // Always search in page for running status keywords (more reliable)
+      const pageTextLower = document.body.innerText.toLowerCase();
+      if (pageTextLower.includes('run and drive')) { highlights = 'Run and Drive'; isRunning = true; }
+      else if (pageTextLower.includes('enhanced vehicle')) { highlights = 'Enhanced Vehicle'; isRunning = true; }
+      else if (pageTextLower.includes('engine starts')) { highlights = 'Engine Starts'; isRunning = true; }
+      else if (pageTextLower.includes('stationary')) { highlights = 'Stationary'; isRunning = false; }
+      else if (pageTextLower.includes('does not run')) { highlights = 'Does Not Run'; isRunning = false; }
+
+      // Determine running from highlights if not already set
+      if (!isRunning) {
+        const highlightsLower = highlights.toLowerCase();
+        if (highlightsLower.includes('run') || highlightsLower.includes('drive') ||
+            highlightsLower.includes('enhanced') || highlightsLower.includes('starts')) {
+          isRunning = true;
+        }
       }
-
-      // Method 3: Check script data
-      if (!highlights && scriptData) {
-        highlights = scriptData.highlights || scriptData.condition || scriptData.runCondition || '';
-      }
-
-      // Determine if vehicle is running based on highlights
-      const highlightsLower = highlights.toLowerCase();
-      if (highlightsLower.includes('run and drive') ||
-          highlightsLower.includes('runs and drives') ||
-          highlightsLower.includes('enhanced') ||
-          highlightsLower.includes('engine starts') ||
-          highlightsLower.includes('starts')) {
-        isRunning = true;
-      } else if (highlightsLower.includes('stationary') ||
-                 highlightsLower.includes('does not run') ||
-                 highlightsLower.includes('non-runner') ||
-                 highlightsLower.includes('not running') ||
-                 highlightsLower.includes('tow only')) {
-        isRunning = false;
-      } else {
-        // Default: assume not running if we can't determine
-        isRunning = false;
-      }
-
-      const seller = scriptData.seller || getDetailValue('seller') || '';
-      const saleType = getDetailValue('sale type') || getDetailValue('sale') || '';
-
-      // Detect insurance seller
-      const insuranceCompanies = [
-        'state farm', 'allstate', 'geico', 'progressive', 'usaa', 'liberty mutual',
-        'farmers', 'nationwide', 'travelers', 'american family', 'insurance', 'ins co'
-      ];
-      const sellerLower = seller.toLowerCase();
-      const isInsurance = insuranceCompanies.some(ins => sellerLower.includes(ins));
 
       // Auction status
       let auctionStatus = 'Active';
       let auctionEnded = false;
-      const allText = document.body.innerText.toLowerCase();
-      if (allText.includes('sold') || allText.includes('sale ended') || allText.includes('auction ended')) {
-        auctionStatus = 'Sale Ended';
+      const pageText = document.body.innerText.toLowerCase();
+      if (pageText.includes('sold') || pageText.includes('sale ended') || pageText.includes('no longer available')) {
+        auctionStatus = 'Sold';
         auctionEnded = true;
       }
 
-      // Parse year, make, model from title
-      let year = 0, make = '', model = '';
-      const titleParts = title.match(/(\d{4})\s+(\S+)\s+(.+)/);
-      if (titleParts) {
-        year = parseInt(titleParts[1]);
-        make = titleParts[2];
-        model = titleParts[3];
-      }
+      // Insurance seller detection
+      const insuranceCompanies = ['state farm', 'allstate', 'geico', 'progressive', 'usaa', 'insurance'];
+      const isInsurance = insuranceCompanies.some(ins => seller.toLowerCase().includes(ins));
 
       return {
-        title, year, make, model, vin, currentBid, buyNowPrice, images, location,
-        damageType, secondaryDamage, odometer, titleStatus, engineType, transmission,
-        driveType, fuelType, color, bodyStyle, hasKeys, highlights, isRunning,
-        auctionDate, auctionDateTime, auctionStatus, auctionEnded, seller, saleType, isInsurance
+        title, year, make, model, vin, currentBid, images,
+        location, damageType, secondaryDamage, odometer: odometer.replace(/[^\d,]/g, ''),
+        titleStatus, engineType, transmission, driveType, fuelType, color, bodyStyle,
+        hasKeys, highlights, isRunning, auctionDate, auctionDateTime, auctionStatus,
+        auctionEnded, seller, saleType, isInsurance
       };
     });
 

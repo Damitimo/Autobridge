@@ -29,8 +29,8 @@ export const shipmentStatusEnum = pgEnum('shipment_status', [
 ]);
 export const shippingMethodEnum = pgEnum('shipping_method', ['roro', 'container_shared', 'container_exclusive']);
 export const walletTransactionTypeEnum = pgEnum('wallet_transaction_type', [
-  'deposit', 'withdrawal', 'bid_lock', 'bid_unlock', 'bid_forfeit', 
-  'payment', 'towing_payment', 'shipping_payment', 'signup_fee', 'refund'
+  'deposit', 'withdrawal', 'bid_lock', 'bid_unlock', 'bid_forfeit',
+  'payment', 'towing_payment', 'shipping_payment', 'signup_fee', 'refund', 'vin_check'
 ]);
 export const transactionStatusEnum = pgEnum('transaction_status', ['pending', 'completed', 'failed', 'reversed']);
 export const invoiceTypeEnum = pgEnum('invoice_type', ['signup_fee', 'car_purchase', 'towing', 'shipping', 'relisting_fee']);
@@ -334,19 +334,33 @@ export const savedSearches = pgTable('saved_searches', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-// Vehicle History Reports Table
+// Vehicle History Reports Table (VIN Check)
 export const vehicleHistoryReports = pgTable('vehicle_history_reports', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   userId: text('user_id').notNull().references(() => users.id),
-  vehicleId: text('vehicle_id').notNull().references(() => vehicles.id),
+  vehicleId: text('vehicle_id').references(() => vehicles.id), // Optional - may not exist yet
   vin: varchar('vin', { length: 17 }).notNull(),
-  
-  provider: varchar('provider', { length: 50 }).notNull(), // 'carfax', 'autocheck', 'nmvtis'
+
+  provider: varchar('provider', { length: 50 }).notNull(), // 'vinaudit', 'clearvin', 'nmvtis'
   reportData: jsonb('report_data').notNull(),
   reportUrl: text('report_url'),
-  
-  cost: decimal('cost', { precision: 6, scale: 2 }),
-  
+  reportPdf: text('report_pdf'), // URL to PDF if available
+
+  // Pricing
+  costUsd: decimal('cost_usd', { precision: 6, scale: 2 }).notNull(),
+  chargedAmount: decimal('charged_amount', { precision: 6, scale: 2 }).notNull(), // What user paid
+
+  // Key report findings (for quick display)
+  titleBrands: jsonb('title_brands').$type<string[]>(),
+  totalLoss: boolean('total_loss'),
+  odometer: integer('odometer'),
+  odometerRollback: boolean('odometer_rollback'),
+  accidentCount: integer('accident_count'),
+  ownerCount: integer('owner_count'),
+
+  // Transaction reference
+  walletTransactionId: text('wallet_transaction_id'),
+
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
