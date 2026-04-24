@@ -1118,61 +1118,51 @@ app.post('/scrape/iaai', authenticate, async (req, res) => {
         return true;
       });
 
-      // IAAI specific data extraction from the data-* attributes or structured content
-      // IAAI typically uses a two-column layout: label on left, value on right
+      // IAAI specific data extraction - handles their label:\nvalue format
       const getValueForLabel = (labelText) => {
         const labelLower = labelText.toLowerCase().trim();
+        const bodyText = document.body.innerText;
 
-        // Method 1: Look for table rows with specific structure
+        // IAAI uses format like "Primary Damage:\nFront End" - label on one line, value on next
+        // Method 1: Look for label followed by newline then value
+        const patterns = [
+          // Label:\nValue format (most common on IAAI)
+          new RegExp(labelText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[:\\s]*\\n([^\\n]{1,100})', 'i'),
+          // Label: Value on same line
+          new RegExp(labelText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[:\\s]+([^\\n]{1,100})', 'i'),
+        ];
+
+        for (const pattern of patterns) {
+          const match = bodyText.match(pattern);
+          if (match) {
+            let value = match[1].trim();
+            // Clean up common suffixes/prefixes
+            value = value.replace(/^\(|\)$/g, '').trim();
+            // Skip if it looks like another label or garbage
+            if (value &&
+                !/^[a-z]+:$/i.test(value) &&
+                !value.includes('|') &&
+                !value.includes('Privacy') &&
+                !value.toLowerCase().includes('vehicle information') &&
+                !value.toLowerCase().includes('bid information') &&
+                value.length < 100) {
+              return value;
+            }
+          }
+        }
+
+        // Method 2: Look for table rows
         const allRows = document.querySelectorAll('tr');
         for (const row of allRows) {
           const cells = row.querySelectorAll('td, th');
           if (cells.length >= 2) {
             const labelCell = cells[0].textContent?.toLowerCase().trim() || '';
-            if (labelCell.includes(labelLower) || labelLower.includes(labelCell)) {
+            if (labelCell.includes(labelLower)) {
               const valueText = cells[1].textContent?.trim() || '';
               if (valueText && valueText.length < 200 && !valueText.toLowerCase().includes(labelLower)) {
                 return valueText;
               }
             }
-          }
-        }
-
-        // Method 2: Look for divs/spans with label-value pairs
-        const containers = document.querySelectorAll('[class*="detail"], [class*="info"], [class*="spec"], dl, .row');
-        for (const container of containers) {
-          const text = container.textContent || '';
-          const textLower = text.toLowerCase();
-          if (textLower.includes(labelLower)) {
-            // Try to find the value after the label
-            const children = container.querySelectorAll('span, div, dd, p');
-            let foundLabel = false;
-            for (const child of children) {
-              const childText = child.textContent?.trim() || '';
-              const childLower = childText.toLowerCase();
-              if (childLower.includes(labelLower)) {
-                foundLabel = true;
-                continue;
-              }
-              if (foundLabel && childText && childText.length < 100 && !childLower.includes(labelLower)) {
-                // Check it's not just whitespace or common UI text
-                if (!/^(loading|n\/a|unknown|see|view|click)$/i.test(childText)) {
-                  return childText;
-                }
-              }
-            }
-          }
-        }
-
-        // Method 3: Regex search in body text (last resort)
-        const bodyText = document.body.innerText;
-        const pattern = new RegExp(labelText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[:\\s]+([^\\n]{1,100})', 'i');
-        const match = bodyText.match(pattern);
-        if (match) {
-          const value = match[1].trim();
-          // Validate it's not another label or garbage
-          if (value && !/^[a-z]+:$/i.test(value) && !value.includes('|') && !value.includes('Privacy')) {
-            return value;
           }
         }
 
@@ -1193,28 +1183,33 @@ app.post('/scrape/iaai', authenticate, async (req, res) => {
       const pageProps = nextData?.props?.pageProps || {};
       const vehicleDetails = pageProps.vehicleDetails || pageProps.vehicle || pageProps.data || {};
 
-      // Extract VIN - prefer from Next data
+      // Extract VIN - IAAI shows partial VIN like "WBX73EF02T5****** (OK)"
       let vin = '';
       if (vehicleDetails.vin && /^[A-HJ-NPR-Z0-9]{17}$/i.test(vehicleDetails.vin)) {
         vin = vehicleDetails.vin.toUpperCase();
       }
-      // Fallback: Look for VIN pattern in page HTML
+      // Try to get VIN from IAAI's "VIN (Status):" label
       if (!vin) {
-        const html = document.body.innerHTML;
-        // Look for VIN in specific contexts (near "VIN" label)
-        const vinContextMatch = html.match(/VIN[:\s]*<[^>]*>([A-HJ-NPR-Z0-9]{17})<\/[^>]+>/i);
-        if (vinContextMatch) {
-          vin = vinContextMatch[1].toUpperCase();
+        const vinText = getValueForLabel('VIN (Status)') || getValueForLabel('VIN');
+        // Extract VIN pattern (may have asterisks for hidden chars)
+        const vinMatch = vinText.match(/([A-HJ-NPR-Z0-9*]{17})/i);
+        if (vinMatch) {
+          vin = vinMatch[1].toUpperCase();
         }
       }
+      // Fallback: Search page for 17-char VIN-like strings
       if (!vin) {
-        // Search for 17-char alphanumeric strings that look like VINs
-        const potentialVins = document.body.innerText.match(/\b[A-HJ-NPR-Z0-9]{17}\b/g) || [];
-        for (const v of potentialVins) {
-          // VINs typically start with a digit or letter (not pattern-like)
-          if (/^[1-9A-HJ-NPR-Z][A-HJ-NPR-Z0-9]{16}$/i.test(v)) {
-            vin = v.toUpperCase();
-            break;
+        const bodyText = document.body.innerText;
+        // Look for VIN with asterisks (IAAI partial VIN)
+        const partialVinMatch = bodyText.match(/\b([A-HJ-NPR-Z0-9]{6,}[*]{2,}[A-HJ-NPR-Z0-9]*)\b/i);
+        if (partialVinMatch && partialVinMatch[1].replace(/\*/g, '').length >= 10) {
+          vin = partialVinMatch[1].toUpperCase();
+        }
+        // Look for full 17-char VIN
+        if (!vin) {
+          const fullVinMatch = bodyText.match(/\b([1-9A-HJ-NPR-Z][A-HJ-NPR-Z0-9]{16})\b/);
+          if (fullVinMatch) {
+            vin = fullVinMatch[1].toUpperCase();
           }
         }
       }
@@ -1241,53 +1236,73 @@ app.post('/scrape/iaai', authenticate, async (req, res) => {
         return val;
       };
 
-      // Extract other details - prefer Next.js data, fall back to DOM
+      // Extract other details using IAAI's exact label text
       const vd = vehicleDetails; // shorthand
-      const odometer = cleanValue(vd.odometer || vd.mileage) || cleanValue(getValueForLabel('Odometer')) || cleanValue(getValueForLabel('Mileage')) || '';
-      const damageType = cleanValue(vd.primaryDamage || vd.damage) || cleanValue(getValueForLabel('Primary Damage')) || cleanValue(getValueForLabel('Damage')) || '';
+      const odometer = cleanValue(vd.odometer || vd.mileage) || cleanValue(getValueForLabel('Odometer')) || '';
+      const damageType = cleanValue(vd.primaryDamage || vd.damage) || cleanValue(getValueForLabel('Primary Damage')) || cleanValue(getValueForLabel('Loss')) || '';
       const secondaryDamage = cleanValue(vd.secondaryDamage) || cleanValue(getValueForLabel('Secondary Damage')) || '';
-      const location = cleanValue(vd.location || vd.branch || vd.yardName || vd.branchName) || cleanValue(getValueForLabel('Location')) || cleanValue(getValueForLabel('Branch')) || '';
-      const titleStatus = cleanValue(vd.title || vd.titleType || vd.docType) || cleanValue(getValueForLabel('Title')) || cleanValue(getValueForLabel('Doc Type')) || '';
+      const location = cleanValue(vd.location || vd.branch || vd.yardName || vd.branchName) || cleanValue(getValueForLabel('Selling Branch')) || cleanValue(getValueForLabel('Location')) || '';
+      const titleStatus = cleanValue(vd.title || vd.titleType || vd.docType) || cleanValue(getValueForLabel('Title/Sale Doc')) || cleanValue(getValueForLabel('Title')) || '';
       const engineType = cleanValue(vd.engine || vd.engineType) || cleanValue(getValueForLabel('Engine')) || '';
       const transmission = cleanValue(vd.transmission) || cleanValue(getValueForLabel('Transmission')) || '';
-      const driveType = cleanValue(vd.drive || vd.driveType || vd.driveTrain) || cleanValue(getValueForLabel('Drive')) || '';
-      const fuelType = cleanValue(vd.fuel || vd.fuelType) || cleanValue(getValueForLabel('Fuel')) || '';
-      const color = cleanValue(vd.color || vd.exteriorColor) || cleanValue(getValueForLabel('Color')) || '';
-      const bodyStyle = cleanValue(vd.body || vd.bodyStyle) || cleanValue(getValueForLabel('Body')) || '';
+      const driveType = cleanValue(vd.drive || vd.driveType || vd.driveTrain) || cleanValue(getValueForLabel('Drive Line Type')) || cleanValue(getValueForLabel('Drive')) || '';
+      const fuelType = cleanValue(vd.fuel || vd.fuelType) || cleanValue(getValueForLabel('Fuel Type')) || cleanValue(getValueForLabel('Fuel')) || '';
+      const color = cleanValue(vd.color || vd.exteriorColor) || cleanValue(getValueForLabel('Exterior/Interior')) || cleanValue(getValueForLabel('Color')) || '';
+      const bodyStyle = cleanValue(vd.body || vd.bodyStyle) || cleanValue(getValueForLabel('Body Style')) || '';
       const seller = cleanValue(vd.seller || vd.sellerName) || cleanValue(getValueForLabel('Seller')) || '';
-      const saleType = cleanValue(vd.saleType || vd.sale) || cleanValue(getValueForLabel('Sale Type')) || '';
+      const saleType = cleanValue(vd.saleType || vd.sale) || cleanValue(getValueForLabel('Seller Type')) || '';
 
-      // Keys
-      const keysText = getValueForLabel('Keys') || '';
-      const hasKeys = keysText.toLowerCase().includes('yes');
+      // Keys - IAAI uses "Key:" label
+      const keysText = getValueForLabel('Key') || getValueForLabel('Keys') || '';
+      const hasKeys = keysText.toLowerCase().includes('present') || keysText.toLowerCase().includes('yes');
 
-      // Auction date
-      let auctionDate = getValueForLabel('Auction Date') || getValueForLabel('Sale Date') || 'See listing';
+      // Auction date - IAAI uses "Auction Date and Time:"
+      let auctionDate = cleanValue(getValueForLabel('Auction Date and Time')) || cleanValue(getValueForLabel('Auction Date')) || cleanValue(getValueForLabel('Sale Date')) || 'See listing';
       let auctionDateTime = null;
-
-      // Running condition
-      let highlights = '';
-      let isRunning = false;
-      const highlightsText = cleanValue(getValueForLabel('Highlights')) || cleanValue(getValueForLabel('Condition')) || cleanValue(getValueForLabel('Run Condition')) || '';
-      if (highlightsText) {
-        highlights = highlightsText;
+      // Try to parse the date
+      if (auctionDate && auctionDate !== 'See listing') {
+        try {
+          // Format: "Fri Apr 24, 12:30pm (CDT)"
+          const dateMatch = auctionDate.match(/([A-Za-z]+\s+[A-Za-z]+\s+\d+)/);
+          if (dateMatch) {
+            const parsed = new Date(dateMatch[1] + ', 2025');
+            if (!isNaN(parsed.getTime())) {
+              auctionDateTime = parsed.toISOString();
+            }
+          }
+        } catch (e) {}
       }
 
-      // Always search in page for running status keywords (more reliable)
-      const pageTextLower = document.body.innerText.toLowerCase();
-      if (pageTextLower.includes('run and drive')) { highlights = 'Run and Drive'; isRunning = true; }
-      else if (pageTextLower.includes('enhanced vehicle')) { highlights = 'Enhanced Vehicle'; isRunning = true; }
-      else if (pageTextLower.includes('engine starts')) { highlights = 'Engine Starts'; isRunning = true; }
-      else if (pageTextLower.includes('stationary')) { highlights = 'Stationary'; isRunning = false; }
-      else if (pageTextLower.includes('does not run')) { highlights = 'Does Not Run'; isRunning = false; }
+      // Running condition - IAAI uses "Start Code:" label
+      let highlights = '';
+      let isRunning = false;
 
-      // Determine running from highlights if not already set
-      if (!isRunning) {
-        const highlightsLower = highlights.toLowerCase();
-        if (highlightsLower.includes('run') || highlightsLower.includes('drive') ||
-            highlightsLower.includes('enhanced') || highlightsLower.includes('starts')) {
-          isRunning = true;
-        }
+      // Get Start Code from IAAI (e.g., "Run & Drive", "Starts", "Stationary")
+      const startCode = cleanValue(getValueForLabel('Start Code')) || '';
+      if (startCode) {
+        highlights = startCode;
+      }
+
+      // Fallback: look for other condition labels
+      if (!highlights) {
+        highlights = cleanValue(getValueForLabel('Highlights')) || cleanValue(getValueForLabel('Condition')) || '';
+      }
+
+      // Fallback: search page for running status keywords
+      if (!highlights) {
+        const pageTextLower = document.body.innerText.toLowerCase();
+        if (pageTextLower.includes('run and drive') || pageTextLower.includes('run & drive')) { highlights = 'Run & Drive'; }
+        else if (pageTextLower.includes('enhanced vehicle')) { highlights = 'Enhanced Vehicle'; }
+        else if (pageTextLower.includes('engine starts')) { highlights = 'Engine Starts'; }
+        else if (pageTextLower.includes('stationary')) { highlights = 'Stationary'; }
+        else if (pageTextLower.includes('does not run')) { highlights = 'Does Not Run'; }
+      }
+
+      // Determine running based on highlights
+      const highlightsLower = highlights.toLowerCase();
+      if (highlightsLower.includes('run') || highlightsLower.includes('drive') ||
+          highlightsLower.includes('enhanced') || highlightsLower.includes('starts')) {
+        isRunning = true;
       }
 
       // Auction status
