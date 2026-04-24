@@ -140,16 +140,30 @@ export default function NewBidRequestPage() {
     try {
       const token = localStorage.getItem('token');
 
-      // First check if we already have the report
-      const checkResponse = await fetch(`/api/vin-check?vin=${vehicleDetails.vin}`, {
+      // First check if we already have the report - URL encode the VIN
+      const checkResponse = await fetch(`/api/vin-check?vin=${encodeURIComponent(vehicleDetails.vin)}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       const checkData = await checkResponse.json();
+
+      // Check for API errors
+      if (checkData.error) {
+        setVinCheckError(checkData.error);
+        setVinCheckLoading(false);
+        return;
+      }
 
       if (checkData.hasReport) {
         // Already have the report - show it directly
         setVinCheckReport(checkData.report);
         setShowVinReport(true);
+        setVinCheckLoading(false);
+        return;
+      }
+
+      // Ensure we have wallet balance data
+      if (checkData.walletBalance === undefined) {
+        setVinCheckError('Unable to check wallet balance. Please try again.');
         setVinCheckLoading(false);
         return;
       }
