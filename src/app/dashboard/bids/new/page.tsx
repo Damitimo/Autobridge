@@ -157,8 +157,8 @@ export default function NewBidRequestPage() {
       // Show confirmation modal with wallet status
       setVinCheckStatus({
         hasReport: false,
-        canAfford: checkData.canAfford,
-        walletBalance: checkData.walletBalance,
+        canAfford: checkData.canAfford ?? false,
+        walletBalance: checkData.walletBalance ?? 0,
       });
       setShowVinConfirmModal(true);
     } catch (err) {
@@ -940,13 +940,13 @@ export default function NewBidRequestPage() {
                             Wallet Balance
                           </span>
                           <span className="font-semibold text-green-600">
-                            ${vinCheckStatus.walletBalance.toFixed(2)}
+                            ${(vinCheckStatus.walletBalance || 0).toFixed(2)}
                           </span>
                         </div>
                         <div className="flex justify-between items-center pt-2 border-t mt-2">
                           <span className="text-gray-600">Balance After</span>
                           <span className="font-semibold">
-                            ${(vinCheckStatus.walletBalance - VIN_CHECK_PRICE).toFixed(2)}
+                            ${((vinCheckStatus.walletBalance || 0) - VIN_CHECK_PRICE).toFixed(2)}
                           </span>
                         </div>
                       </div>
@@ -983,13 +983,13 @@ export default function NewBidRequestPage() {
                       </div>
                       <h4 className="font-bold text-lg text-gray-900 mb-2">Insufficient Balance</h4>
                       <p className="text-gray-600 mb-4">
-                        You need <span className="font-bold">${VIN_CHECK_PRICE}.00</span> for this VIN check, but your wallet only has <span className="font-bold">${vinCheckStatus.walletBalance.toFixed(2)}</span>.
+                        You need <span className="font-bold">${VIN_CHECK_PRICE}.00</span> for this VIN check, but your wallet only has <span className="font-bold">${(vinCheckStatus.walletBalance || 0).toFixed(2)}</span>.
                       </p>
                       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                         <div className="flex justify-between items-center mb-2">
                           <span className="text-yellow-800">Amount Needed</span>
                           <span className="font-bold text-yellow-800">
-                            ${(VIN_CHECK_PRICE - vinCheckStatus.walletBalance).toFixed(2)}
+                            ${(VIN_CHECK_PRICE - (vinCheckStatus.walletBalance || 0)).toFixed(2)}
                           </span>
                         </div>
                       </div>
@@ -1006,7 +1006,7 @@ export default function NewBidRequestPage() {
                           setShowVinConfirmModal(false);
                           setFundWalletInfo({
                             required: VIN_CHECK_PRICE,
-                            available: vinCheckStatus.walletBalance,
+                            available: vinCheckStatus.walletBalance || 0,
                           });
                           setShowFundWalletModal(true);
                         }}
