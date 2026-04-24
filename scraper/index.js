@@ -248,11 +248,19 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
               /vin[:\s]*[a-hj-npr-z0-9*]{10,17}/i.test(val)) {
             return false;
           }
-          // Reject lot number patterns - including "Lot number:" without digits
+          // Reject lot number, lane/item, and other navigation patterns
           if (/^lot[\s]*(?:number)?[:\s#]*/i.test(val) || /^\d{6,}$/.test(val.trim()) ||
               /lot\s*(?:number|#)?\s*:?\s*\d{5,}/i.test(val) ||
               lower.startsWith('lot number') || lower.startsWith('lot:') ||
-              lower === 'lot' || /^lane[\/\s]/i.test(val)) {
+              lower === 'lot' || /^lane[\/\s]/i.test(val) ||
+              // Reject lane/item patterns like "A/824"
+              /^[A-Z]\/\d+$/i.test(val.trim()) ||
+              lower.startsWith('lane') || lower.startsWith('item') ||
+              // Reject other Copart navigation labels
+              lower.startsWith('sale name') || lower.startsWith('location:') ||
+              lower.startsWith('tx -') || lower.startsWith('ca -') ||
+              lower.includes('houston') || lower.includes('dallas') ||
+              lower.startsWith('watchlist') || lower.startsWith('hd')) {
             return false;
           }
           // Reject common UI elements
@@ -369,26 +377,33 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
       if (lotData.vin && /^[A-HJ-NPR-Z0-9]{17}$/i.test(lotData.vin)) {
         vin = lotData.vin.toUpperCase();
       }
-      // Method 2: Find VIN pattern in page (including partial VINs with asterisks)
-      if (!vin) {
-        const html = document.body.innerHTML;
-        // Look for VIN near a VIN label - allow asterisks
-        const vinContextMatch = html.match(/VIN[:\s#]*([A-HJ-NPR-Z0-9*]{17})/i);
-        if (vinContextMatch) vin = vinContextMatch[1].toUpperCase();
-      }
-      // Method 3: Any 17-char VIN pattern in text
+      // Method 2: Find VIN pattern in page text (including partial VINs with asterisks)
       if (!vin) {
         const allText = document.body.innerText;
-        // Try full VIN first
-        const fullVinMatch = allText.match(/\b([1-9A-HJ-NPR-Z][A-HJ-NPR-Z0-9]{16})\b/);
+        // Look for VIN: followed by the VIN number
+        const vinContextMatch = allText.match(/VIN[:\s]*([0-9A-HJ-NPR-Z*]{17})/i);
+        if (vinContextMatch) {
+          vin = vinContextMatch[1].toUpperCase();
+        }
+      }
+      // Method 3: Try full VIN pattern (17 alphanumeric chars)
+      if (!vin) {
+        const allText = document.body.innerText;
+        const fullVinMatch = allText.match(/\b([0-9A-HJ-NPR-Z]{17})\b/);
         if (fullVinMatch) {
           vin = fullVinMatch[1].toUpperCase();
-        } else {
-          // Try partial VIN with asterisks
-          const partialVinMatch = allText.match(/\b([A-HJ-NPR-Z0-9]{6,}[*]{2,}[A-HJ-NPR-Z0-9]*)\b/i);
-          if (partialVinMatch && partialVinMatch[1].length >= 17) {
-            vin = partialVinMatch[1].toUpperCase();
-          }
+        }
+      }
+      // Method 4: Try partial VIN with asterisks
+      if (!vin) {
+        const allText = document.body.innerText;
+        // Match patterns like "1FTYR2ZM1KK******" - at least 6 chars then asterisks
+        const partialVinMatch = allText.match(/\b([0-9A-HJ-NPR-Z]{6,}[*]{2,})\b/i);
+        if (partialVinMatch && partialVinMatch[1].replace(/\*/g, '').length >= 10) {
+          // Ensure total length is 17 by padding with asterisks if needed
+          let vinStr = partialVinMatch[1];
+          if (vinStr.length < 17) vinStr = vinStr + '*'.repeat(17 - vinStr.length);
+          vin = vinStr.substring(0, 17).toUpperCase();
         }
       }
 
