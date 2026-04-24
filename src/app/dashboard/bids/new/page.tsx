@@ -57,6 +57,7 @@ interface VehicleDetails {
   seller?: string;
   isInsurance?: boolean;
   saleType?: string;
+  source?: 'copart' | 'iaai';
 }
 
 export default function NewBidRequestPage() {
@@ -285,7 +286,7 @@ export default function NewBidRequestPage() {
                 <div>
                   <p className="text-sm font-medium">Limited data available</p>
                   <p className="text-xs mt-1">
-                    Some vehicle details may be unavailable. Please verify on Copart before bidding.
+                    Some vehicle details may be unavailable. Please verify on {vehicleDetails.source === 'iaai' ? 'IAAI' : 'Copart'} before bidding.
                   </p>
                 </div>
               </div>
@@ -415,7 +416,7 @@ export default function NewBidRequestPage() {
                     rel="noopener noreferrer"
                     className="text-brand-dark hover:text-brand-gold flex items-center gap-1 text-sm"
                   >
-                    View on Copart <ExternalLink className="h-4 w-4" />
+                    View on {vehicleDetails.source === 'iaai' ? 'IAAI' : 'Copart'} <ExternalLink className="h-4 w-4" />
                   </a>
                 </div>
 
