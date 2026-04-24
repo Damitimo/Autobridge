@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserFromToken } from '@/lib/auth';
+import {
+  TOWING_RATE_BANDS,
+  MINIMUM_TOWING_CHARGE,
+  TOWING_FEES,
+  ROAD_DISTANCE_FACTOR,
+} from '@/data/towing-rates';
 
 export const dynamic = 'force-dynamic';
 
@@ -131,76 +137,49 @@ function findNearestPort(state: string): { port: string; distance: number } {
     }
   }
 
-  // Add 20% for actual road distance vs straight-line (Haversine)
-  const roadDistance = minDistance * 1.20;
+  // Add road distance factor for actual road distance vs straight-line (Haversine)
+  const roadDistance = minDistance * ROAD_DISTANCE_FACTOR;
 
   return { port: nearestPort, distance: roadDistance };
 }
 
-// Tiered towing rate structure (from Excel: 2025/26 rates)
+// Get towing rate per mile using imported rate bands
 function getTowingRatePerMile(distance: number): number {
-  if (distance <= 100) return 1.50;
-  if (distance <= 500) return 1.20;
-  if (distance <= 1000) return 0.95;
-  if (distance <= 1500) return 0.80;
-  if (distance <= 2000) return 0.70;
-  return 0.60; // 2000+ miles
+  for (const band of TOWING_RATE_BANDS) {
+    const maxMiles = band.maxMiles ?? Infinity;
+    if (distance >= band.minMiles && distance <= maxMiles) {
+      return band.ratePerMile;
+    }
+  }
+  return TOWING_RATE_BANDS[TOWING_RATE_BANDS.length - 1].ratePerMile;
 }
 
-// Calculate towing cost based on distance with tiered rates
+// Calculate towing cost based on distance with tiered rates from imported data
 function calculateTowingCost(state: string, isRunning: boolean, hasKeys: boolean): number {
   const { distance } = findNearestPort(state);
 
-  // Calculate cost using tiered rates
+  // Calculate cost using tiered rates from TOWING_RATE_BANDS
   let cost = 0;
   let remainingDistance = distance;
 
-  // 0-100 miles at $1.50/mi
-  if (remainingDistance > 0) {
-    const miles = Math.min(remainingDistance, 100);
-    cost += miles * 1.50;
-    remainingDistance -= miles;
+  for (const band of TOWING_RATE_BANDS) {
+    if (remainingDistance <= 0) break;
+
+    const bandStart = band.minMiles;
+    const bandEnd = band.maxMiles ?? Infinity;
+    const bandWidth = band.minMiles === 0 ? bandEnd + 1 : bandEnd - bandStart + 1;
+
+    const milesInBand = Math.min(remainingDistance, bandWidth);
+    cost += milesInBand * band.ratePerMile;
+    remainingDistance -= milesInBand;
   }
 
-  // 101-500 miles at $1.20/mi
-  if (remainingDistance > 0) {
-    const miles = Math.min(remainingDistance, 400); // 500 - 100 = 400
-    cost += miles * 1.20;
-    remainingDistance -= miles;
-  }
-
-  // 501-1000 miles at $0.95/mi
-  if (remainingDistance > 0) {
-    const miles = Math.min(remainingDistance, 500); // 1000 - 500 = 500
-    cost += miles * 0.95;
-    remainingDistance -= miles;
-  }
-
-  // 1001-1500 miles at $0.80/mi
-  if (remainingDistance > 0) {
-    const miles = Math.min(remainingDistance, 500); // 1500 - 1000 = 500
-    cost += miles * 0.80;
-    remainingDistance -= miles;
-  }
-
-  // 1501-2000 miles at $0.70/mi
-  if (remainingDistance > 0) {
-    const miles = Math.min(remainingDistance, 500); // 2000 - 1500 = 500
-    cost += miles * 0.70;
-    remainingDistance -= miles;
-  }
-
-  // 2000+ miles at $0.60/mi
-  if (remainingDistance > 0) {
-    cost += remainingDistance * 0.60;
-  }
-
-  // Apply minimum charge of $150
-  cost = Math.max(cost, 150);
+  // Apply minimum charge from imported constant
+  cost = Math.max(cost, MINIMUM_TOWING_CHARGE);
 
   // Add fees for non-running vehicles and missing keys
-  if (!isRunning) cost += 75;
-  if (!hasKeys) cost += 50;
+  if (!isRunning) cost += TOWING_FEES.nonRunning;
+  if (!hasKeys) cost += TOWING_FEES.noKeys;
 
   return Math.round(cost);
 }
