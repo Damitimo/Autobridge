@@ -29,6 +29,68 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'autobridge-scraper' });
 });
 
+// Debug endpoint - capture IAAI page HTML and images for investigation
+app.post('/debug/iaai', authenticate, async (req, res) => {
+  const { url } = req.body;
+  if (!url || !url.includes('iaai.com')) {
+    return res.status(400).json({ error: 'Valid IAAI URL required' });
+  }
+
+  let browser;
+  try {
+    const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || undefined;
+    browser = await puppeteer.launch({
+      headless: true,
+      executablePath,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--single-process'],
+    });
+
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1920, height: 1080 });
+    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+    // Capture all image URLs from network
+    const imageUrls = [];
+    page.on('response', async response => {
+      const url = response.url();
+      if (url.match(/\.(jpg|jpeg|png|webp|gif)/i) || url.includes('vis.iaai.com') || url.includes('images.iaai.com')) {
+        imageUrls.push({ url, status: response.status() });
+      }
+    });
+
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+    await new Promise(r => setTimeout(r, 5000));
+
+    // Get all img tags
+    const imgTags = await page.evaluate(() => {
+      return Array.from(document.querySelectorAll('img')).map(img => ({
+        src: img.src,
+        dataSrc: img.dataset?.src,
+        alt: img.alt,
+        className: img.className,
+        width: img.naturalWidth,
+        height: img.naturalHeight
+      }));
+    });
+
+    // Take screenshot
+    const screenshot = await page.screenshot({ encoding: 'base64', fullPage: false });
+
+    await browser.close();
+
+    res.json({
+      success: true,
+      networkImages: imageUrls.slice(0, 30),
+      imgTags: imgTags.filter(i => i.src?.includes('iaai')).slice(0, 20),
+      screenshotBase64: screenshot.substring(0, 500) + '... (truncated)',
+      totalImgTags: imgTags.length
+    });
+  } catch (error) {
+    if (browser) await browser.close();
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Scrape Copart vehicle
 app.post('/scrape/copart', authenticate, async (req, res) => {
   const { url } = req.body;
@@ -1019,38 +1081,42 @@ app.post('/scrape/iaai', authenticate, async (req, res) => {
       // Images - Multiple methods
       let images = [];
 
-      // Method 1: All img tags with IAAI domains
+      // Method 1: All img tags with IAAI vis.iaai.com resizer URLs (vehicle photos)
       document.querySelectorAll('img').forEach(img => {
         const src = img.src || img.dataset?.src || '';
-        if (src && src.includes('iaai.com') && !src.includes('placeholder') && !src.includes('logo')) {
-          // Convert to full resolution
-          let fullSrc = src;
-          if (src.includes('/resizer?')) {
-            // IAAI resizer URL - extract original and use larger size
-            fullSrc = src.replace(/imageKeys=([^&]+)/, (m, keys) => {
-              return 'imageKeys=' + keys;
-            }).replace(/width=\d+/, 'width=1024').replace(/height=\d+/, 'height=768');
-          }
+        // Only capture actual vehicle photos from vis.iaai.com resizer
+        if (src && src.includes('vis.iaai.com/resizer') && src.includes('imageKeys=')) {
+          // Convert to larger size (845x633 is what IAAI uses for main image)
+          let fullSrc = src.replace(/width=\d+/, 'width=845').replace(/height=\d+/, 'height=633');
           images.push(fullSrc);
         }
       });
 
-      // Method 2: Look in script content for image URLs
+      // Method 2: Look in script content for vis.iaai.com resizer URLs
       scripts.forEach(script => {
         const content = script.textContent || '';
-        const imageMatches = content.match(/https?:\/\/(?:vis|images)\.iaai\.com[^"'\s\\]+/gi);
-        if (imageMatches) {
-          imageMatches.forEach(url => {
-            const cleanUrl = url.replace(/\\u002F/g, '/').replace(/\\/g, '');
-            if (cleanUrl.includes('.jpg') || cleanUrl.includes('.png') || cleanUrl.includes('.webp')) {
-              images.push(cleanUrl);
-            }
+        // Look specifically for resizer URLs with imageKeys
+        const resizerMatches = content.match(/https?:\/\/vis\.iaai\.com\/resizer\?imageKeys=[^"'\s\\]+/gi);
+        if (resizerMatches) {
+          resizerMatches.forEach(url => {
+            let cleanUrl = url.replace(/\\u002F/g, '/').replace(/\\/g, '').replace(/&amp;/g, '&');
+            // Convert to larger size
+            cleanUrl = cleanUrl.replace(/width=\d+/, 'width=845').replace(/height=\d+/, 'height=633');
+            if (!cleanUrl.includes('width=')) cleanUrl += '&width=845&height=633';
+            images.push(cleanUrl);
           });
         }
       });
 
-      // Dedupe images
-      images = [...new Set(images)].filter(src => src && src.startsWith('http'));
+      // Dedupe images and filter to only vehicle photos
+      images = [...new Set(images)].filter(src => {
+        if (!src || !src.startsWith('http')) return false;
+        // Only keep vis.iaai.com resizer URLs (actual vehicle photos)
+        if (!src.includes('vis.iaai.com/resizer')) return false;
+        // Filter out icons, logos, thumbnails for video, etc.
+        if (src.includes('thumbnail-engine') || src.includes('logo') || src.includes('.svg')) return false;
+        return true;
+      });
 
       // IAAI specific data extraction from the data-* attributes or structured content
       // IAAI typically uses a two-column layout: label on left, value on right
