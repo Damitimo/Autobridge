@@ -248,9 +248,11 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
               /vin[:\s]*[a-hj-npr-z0-9*]{10,17}/i.test(val)) {
             return false;
           }
-          // Reject lot number patterns
-          if (/^lot[\s]*(?:number)?[:\s#]*\d+/i.test(val) || /^\d{6,}$/.test(val.trim()) ||
-              /lot\s*(?:number|#)?\s*:?\s*\d{5,}/i.test(val)) {
+          // Reject lot number patterns - including "Lot number:" without digits
+          if (/^lot[\s]*(?:number)?[:\s#]*/i.test(val) || /^\d{6,}$/.test(val.trim()) ||
+              /lot\s*(?:number|#)?\s*:?\s*\d{5,}/i.test(val) ||
+              lower.startsWith('lot number') || lower.startsWith('lot:') ||
+              lower === 'lot' || /^lane[\/\s]/i.test(val)) {
             return false;
           }
           // Reject common UI elements
@@ -361,24 +363,33 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
         return lower.length > 0 && !invalidValues.some(inv => lower.includes(inv));
       };
 
-      // VIN - must be exactly 17 alphanumeric chars (excluding I, O, Q)
+      // VIN - 17 chars, may include asterisks for hidden chars
       let vin = '';
-      // Method 1: From extracted lot data
+      // Method 1: From extracted lot data (full VIN)
       if (lotData.vin && /^[A-HJ-NPR-Z0-9]{17}$/i.test(lotData.vin)) {
         vin = lotData.vin.toUpperCase();
       }
-      // Method 2: Find VIN pattern in entire page HTML
+      // Method 2: Find VIN pattern in page (including partial VINs with asterisks)
       if (!vin) {
         const html = document.body.innerHTML;
-        // Look for VIN near a VIN label
-        const vinContextMatch = html.match(/VIN[:\s#]*([A-HJ-NPR-Z0-9]{17})/i);
+        // Look for VIN near a VIN label - allow asterisks
+        const vinContextMatch = html.match(/VIN[:\s#]*([A-HJ-NPR-Z0-9*]{17})/i);
         if (vinContextMatch) vin = vinContextMatch[1].toUpperCase();
       }
-      // Method 3: Any 17-char VIN pattern (less reliable)
+      // Method 3: Any 17-char VIN pattern in text
       if (!vin) {
         const allText = document.body.innerText;
-        const vinMatch = allText.match(/\b([A-HJ-NPR-Z0-9]{17})\b/);
-        if (vinMatch) vin = vinMatch[1].toUpperCase();
+        // Try full VIN first
+        const fullVinMatch = allText.match(/\b([1-9A-HJ-NPR-Z][A-HJ-NPR-Z0-9]{16})\b/);
+        if (fullVinMatch) {
+          vin = fullVinMatch[1].toUpperCase();
+        } else {
+          // Try partial VIN with asterisks
+          const partialVinMatch = allText.match(/\b([A-HJ-NPR-Z0-9]{6,}[*]{2,}[A-HJ-NPR-Z0-9]*)\b/i);
+          if (partialVinMatch && partialVinMatch[1].length >= 17) {
+            vin = partialVinMatch[1].toUpperCase();
+          }
+        }
       }
 
       // Current bid - try multiple methods
@@ -689,7 +700,16 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
       if (lotData.docType && isValidValue(lotData.docType)) {
         titleStatus = lotData.docType;
       }
-      // Method 2: Look for doc type pattern in page text
+      // Method 2: Look for "Title code:" pattern - Copart uses "TX - Salvage Vehicle Title" format
+      if (!titleStatus) {
+        const allText = document.body.innerText;
+        // Copart format: "Title code:\nTX -\nSalvage Vehicle Title"
+        const titleCodeMatch = allText.match(/Title\s*code[:\s]*\n?([A-Z]{2})\s*-?\s*\n?([A-Za-z\s]+(?:Title|Certificate|Document|Bill))/i);
+        if (titleCodeMatch) {
+          titleStatus = titleCodeMatch[1] + ' - ' + titleCodeMatch[2].trim();
+        }
+      }
+      // Method 3: Look for doc type pattern in page text
       if (!titleStatus) {
         const allText = document.body.innerText;
         const patterns = [
@@ -704,10 +724,10 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
           }
         }
       }
-      // Common title types to look for
+      // Method 4: Common title types to look for
       if (!titleStatus) {
         const allText = document.body.innerText.toLowerCase();
-        const titleTypes = ['clean title', 'salvage title', 'certificate of destruction', 'non-repairable', 'rebuilt'];
+        const titleTypes = ['salvage vehicle title', 'clean title', 'salvage title', 'certificate of destruction', 'non-repairable', 'rebuilt'];
         for (const type of titleTypes) {
           if (allText.includes(type)) {
             titleStatus = type.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -721,7 +741,9 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
       const fuelType = getDetailValue('fuel') || '';
       const color = getDetailValue('color') || '';
       const bodyStyle = getDetailValue('body style') || '';
-      const hasKeys = (getDetailValue('keys') || '').toLowerCase().includes('yes');
+      // Has keys - check multiple label variations
+      const keysValue = getDetailValue('has key') || getDetailValue('keys') || getDetailValue('key') || '';
+      const hasKeys = keysValue.toLowerCase().includes('yes');
 
       // Vehicle running condition - extract from Highlights field
       let highlights = '';
