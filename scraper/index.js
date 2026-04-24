@@ -248,19 +248,21 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
               /vin[:\s]*[a-hj-npr-z0-9*]{10,17}/i.test(val)) {
             return false;
           }
-          // Reject lot number, lane/item, and other navigation patterns
+          // Reject lot number, lane/item, image counters, and other navigation patterns
           if (/^lot[\s]*(?:number)?[:\s#]*/i.test(val) || /^\d{6,}$/.test(val.trim()) ||
               /lot\s*(?:number|#)?\s*:?\s*\d{5,}/i.test(val) ||
               lower.startsWith('lot number') || lower.startsWith('lot:') ||
               lower === 'lot' || /^lane[\/\s]/i.test(val) ||
-              // Reject lane/item patterns like "A/824"
-              /^[A-Z]\/\d+$/i.test(val.trim()) ||
+              // Reject lane/item patterns like "A/824" or "1/14" (image counter)
+              /^[A-Z]?\/?\d+$/i.test(val.trim()) ||
+              /^\d+\/\d+$/.test(val.trim()) ||
               lower.startsWith('lane') || lower.startsWith('item') ||
-              // Reject other Copart navigation labels
+              // Reject other Copart navigation labels and locations
               lower.startsWith('sale name') || lower.startsWith('location:') ||
-              lower.startsWith('tx -') || lower.startsWith('ca -') ||
-              lower.includes('houston') || lower.includes('dallas') ||
-              lower.startsWith('watchlist') || lower.startsWith('hd')) {
+              /^[a-z]{2}\s*-/i.test(val.trim()) ||
+              lower.startsWith('watchlist') || lower.startsWith('hd') ||
+              // Reject short single-word values that are likely UI elements
+              (val.trim().length < 3 && !/\d/.test(val))) {
             return false;
           }
           // Reject common UI elements
@@ -750,14 +752,32 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
           }
         }
       }
-      const engineType = getDetailValue('engine') || '';
-      const transmission = getDetailValue('transmission') || '';
-      const driveType = getDetailValue('drive') || '';
-      const fuelType = getDetailValue('fuel') || '';
-      const color = getDetailValue('color') || '';
-      const bodyStyle = getDetailValue('body style') || '';
+      // Copart-specific extraction using "Label:\nValue" format
+      const getCopartValue = (label) => {
+        const allText = document.body.innerText;
+        // Look for exact label followed by newline and value
+        const pattern = new RegExp(label + '[:\\s]*\\n([^\\n]{1,100})', 'i');
+        const match = allText.match(pattern);
+        if (match) {
+          const val = match[1].trim();
+          // Filter out bad values
+          if (val && !/^\d+\/\d+$/.test(val) && val.length > 1 && val.length < 50 &&
+              !val.toLowerCase().startsWith('lot') && !val.toLowerCase().startsWith('sale') &&
+              !/^[A-Z]\/\d+$/i.test(val)) {
+            return val;
+          }
+        }
+        return '';
+      };
+
+      const engineType = getCopartValue('Engine type') || getDetailValue('engine') || '';
+      const transmission = getCopartValue('Transmission') || getDetailValue('transmission') || '';
+      const driveType = getCopartValue('Drivetrain') || getDetailValue('drive') || '';
+      const fuelType = getCopartValue('Fuel') || getDetailValue('fuel') || '';
+      const color = getCopartValue('Color') || getDetailValue('color') || '';
+      const bodyStyle = getCopartValue('Body style') || getDetailValue('body style') || '';
       // Has keys - check multiple label variations
-      const keysValue = getDetailValue('has key') || getDetailValue('keys') || getDetailValue('key') || '';
+      const keysValue = getCopartValue('Has key') || getDetailValue('has key') || getDetailValue('keys') || '';
       const hasKeys = keysValue.toLowerCase().includes('yes');
 
       // Vehicle running condition - extract from Highlights field
