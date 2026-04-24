@@ -660,6 +660,68 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
       const bodyStyle = getDetailValue('body style') || '';
       const hasKeys = (getDetailValue('keys') || '').toLowerCase().includes('yes');
 
+      // Vehicle running condition - extract from Highlights field
+      let highlights = '';
+      let isRunning = false;
+
+      // Method 1: Look for Highlights section
+      const highlightsSelectors = [
+        '[data-uname="lotdetailsHighlights"]',
+        '.lot-details-highlights',
+        '[class*="highlights"]',
+        '[class*="Highlights"]',
+      ];
+      for (const selector of highlightsSelectors) {
+        const el = document.querySelector(selector);
+        if (el && el.textContent?.trim()) {
+          highlights = el.textContent.trim();
+          break;
+        }
+      }
+
+      // Method 2: Search in page text for highlights patterns
+      if (!highlights) {
+        const allText = document.body.innerText;
+        const highlightsMatch = allText.match(/highlights?[:\s]+([^\n]+)/i);
+        if (highlightsMatch) {
+          highlights = highlightsMatch[1].trim();
+        }
+      }
+
+      // Method 3: Look for run/drive status anywhere
+      if (!highlights) {
+        const allText = document.body.innerText.toLowerCase();
+        if (allText.includes('run and drive')) highlights = 'Run and Drive';
+        else if (allText.includes('enhanced vehicle')) highlights = 'Enhanced Vehicle';
+        else if (allText.includes('starts')) highlights = 'Starts';
+        else if (allText.includes('stationary')) highlights = 'Stationary';
+        else if (allText.includes('engine starts')) highlights = 'Engine Starts';
+      }
+
+      // Method 4: Check script data for highlights
+      if (!highlights && lotData) {
+        highlights = lotData.highlights || lotData.hl || lotData.vehicleHighlights || '';
+      }
+
+      // Determine if vehicle is running based on highlights
+      const highlightsLower = highlights.toLowerCase();
+      if (highlightsLower.includes('run and drive') ||
+          highlightsLower.includes('runs and drives') ||
+          highlightsLower.includes('enhanced vehicle') ||
+          highlightsLower.includes('engine starts') ||
+          highlightsLower.includes('starts')) {
+        isRunning = true;
+      } else if (highlightsLower.includes('stationary') ||
+                 highlightsLower.includes('does not run') ||
+                 highlightsLower.includes('non-runner') ||
+                 highlightsLower.includes('not running') ||
+                 highlightsLower.includes('tow only')) {
+        isRunning = false;
+      } else {
+        // Default: assume not running if we can't determine (safer for cost estimate)
+        isRunning = false;
+      }
+
       // Seller - important for insurance detection
       let seller = '';
       // Method 1: From script data
@@ -740,8 +802,8 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
       return {
         title, year, make, model, vin, currentBid, buyNowPrice, images, location,
         damageType, secondaryDamage, odometer, titleStatus, engineType, transmission,
-        driveType, fuelType, color, bodyStyle, hasKeys, auctionDate, auctionDateTime,
-        auctionStatus, auctionEnded, seller, saleType, isInsurance
+        driveType, fuelType, color, bodyStyle, hasKeys, highlights, isRunning,
+        auctionDate, auctionDateTime, auctionStatus, auctionEnded, seller, saleType, isInsurance
       };
     });
 
@@ -778,6 +840,8 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
       color: vehicleData.color,
       bodyStyle: vehicleData.bodyStyle,
       hasKeys: vehicleData.hasKeys,
+      highlights: vehicleData.highlights || '',
+      isRunning: vehicleData.isRunning || false,
       auctionDate: vehicleData.auctionDate,
       auctionDateTime: vehicleData.auctionDateTime,
       auctionStatus: vehicleData.auctionStatus,
@@ -789,6 +853,7 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
     };
 
     console.log('Scrape complete:', result.title);
+    console.log('Highlights:', result.highlights, '| isRunning:', result.isRunning);
     res.json({ success: true, vehicle: result });
 
   } catch (error) {
@@ -1182,6 +1247,52 @@ app.post('/scrape/iaai', authenticate, async (req, res) => {
       const color = getDetailValue('color') || '';
       const bodyStyle = getDetailValue('body') || getDetailValue('body style') || '';
       const hasKeys = (getDetailValue('keys') || '').toLowerCase().includes('yes');
+
+      // Vehicle running condition - extract from Highlights/Condition field
+      let highlights = '';
+      let isRunning = false;
+
+      // Method 1: Look for highlights or condition section
+      const highlightsText = getDetailValue('highlights') || getDetailValue('condition') ||
+                            getDetailValue('run condition') || getDetailValue('vehicle condition') || '';
+      if (highlightsText) {
+        highlights = highlightsText;
+      }
+
+      // Method 2: Search in page text for running status
+      if (!highlights) {
+        const allText = document.body.innerText.toLowerCase();
+        if (allText.includes('run and drive')) highlights = 'Run and Drive';
+        else if (allText.includes('enhanced vehicle')) highlights = 'Enhanced Vehicle';
+        else if (allText.includes('starts')) highlights = 'Starts';
+        else if (allText.includes('stationary')) highlights = 'Stationary';
+        else if (allText.includes('engine starts')) highlights = 'Engine Starts';
+      }
+
+      // Method 3: Check script data
+      if (!highlights && scriptData) {
+        highlights = scriptData.highlights || scriptData.condition || scriptData.runCondition || '';
+      }
+
+      // Determine if vehicle is running based on highlights
+      const highlightsLower = highlights.toLowerCase();
+      if (highlightsLower.includes('run and drive') ||
+          highlightsLower.includes('runs and drives') ||
+          highlightsLower.includes('enhanced') ||
+          highlightsLower.includes('engine starts') ||
+          highlightsLower.includes('starts')) {
+        isRunning = true;
+      } else if (highlightsLower.includes('stationary') ||
+                 highlightsLower.includes('does not run') ||
+                 highlightsLower.includes('non-runner') ||
+                 highlightsLower.includes('not running') ||
+                 highlightsLower.includes('tow only')) {
+        isRunning = false;
+      } else {
+        // Default: assume not running if we can't determine
+        isRunning = false;
+      }
+
       const seller = scriptData.seller || getDetailValue('seller') || '';
       const saleType = getDetailValue('sale type') || getDetailValue('sale') || '';
 
@@ -1214,8 +1325,8 @@ app.post('/scrape/iaai', authenticate, async (req, res) => {
       return {
         title, year, make, model, vin, currentBid, buyNowPrice, images, location,
         damageType, secondaryDamage, odometer, titleStatus, engineType, transmission,
-        driveType, fuelType, color, bodyStyle, hasKeys, auctionDate, auctionDateTime,
-        auctionStatus, auctionEnded, seller, saleType, isInsurance
+        driveType, fuelType, color, bodyStyle, hasKeys, highlights, isRunning,
+        auctionDate, auctionDateTime, auctionStatus, auctionEnded, seller, saleType, isInsurance
       };
     });
 
@@ -1244,6 +1355,8 @@ app.post('/scrape/iaai', authenticate, async (req, res) => {
       color: vehicleData.color || '',
       bodyStyle: vehicleData.bodyStyle || '',
       hasKeys: vehicleData.hasKeys || false,
+      highlights: vehicleData.highlights || '',
+      isRunning: vehicleData.isRunning || false,
       auctionDate: vehicleData.auctionDate || 'See listing',
       auctionDateTime: vehicleData.auctionDateTime,
       auctionStatus: vehicleData.auctionStatus || 'Active',
@@ -1256,6 +1369,7 @@ app.post('/scrape/iaai', authenticate, async (req, res) => {
 
     console.log('IAAI scrape complete:', result.title);
     console.log('Images found:', result.images.length);
+    console.log('Highlights:', result.highlights, '| isRunning:', result.isRunning);
     res.json({ success: true, vehicle: result });
 
   } catch (error) {

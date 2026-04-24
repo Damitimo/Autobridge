@@ -51,8 +51,9 @@ interface VehicleDetails {
   vehicleType?: string;
   cylinders?: string;
   hasKeys?: boolean;
-  retailValue?: string;
   highlights?: string;
+  isRunning?: boolean;
+  retailValue?: string;
   specialtyDescription?: string;
   seller?: string;
   isInsurance?: boolean;
