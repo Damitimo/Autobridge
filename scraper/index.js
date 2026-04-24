@@ -1136,8 +1136,10 @@ app.post('/scrape/iaai', authenticate, async (req, res) => {
           const match = bodyText.match(pattern);
           if (match) {
             let value = match[1].trim();
-            // Clean up common suffixes/prefixes
-            value = value.replace(/^\(|\)$/g, '').trim();
+            // Only remove parentheses if the entire value is wrapped in them
+            if (value.startsWith('(') && value.endsWith(')')) {
+              value = value.slice(1, -1).trim();
+            }
             // Skip if it looks like another label or garbage
             if (value &&
                 !/^[a-z]+:$/i.test(value) &&

@@ -16,7 +16,8 @@ import {
   LogOut,
   Menu,
   X,
-  MessageSquare
+  MessageSquare,
+  FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import NotificationDropdown from '@/components/notification-dropdown';
@@ -46,6 +47,11 @@ const sidebarItems = [
     name: 'My Wallet',
     href: '/dashboard/wallet',
     icon: Wallet,
+  },
+  {
+    name: 'Documents',
+    href: '/dashboard/documents',
+    icon: FileText,
   },
   {
     name: 'Notifications',
@@ -274,6 +280,7 @@ export default function DashboardLayout({
                 {pathname === '/dashboard/bids' && 'My Bids'}
                 {pathname === '/dashboard/messages' && 'Messages'}
                 {pathname === '/dashboard/shipments' && 'Shipments'}
+                {pathname === '/dashboard/documents' && 'Documents'}
                 {pathname === '/dashboard/notifications' && 'Notifications'}
                 {pathname === '/dashboard/profile' && 'Profile'}
               </h2>

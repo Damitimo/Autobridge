@@ -8,7 +8,7 @@ import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, AlertCircle, Link2, Car, DollarSign, ExternalLink, Info, ChevronLeft, ChevronRight, X, ZoomIn, FileSearch, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle, Link2, Car, DollarSign, ExternalLink, Info, ChevronLeft, ChevronRight, X, ZoomIn, FileSearch, CheckCircle, XCircle, AlertTriangle, Download, Wallet } from 'lucide-react';
 import CostBreakdown from '@/components/cost-breakdown';
 import AuctionCountdown from '@/components/auction-countdown';
 
@@ -83,6 +83,8 @@ export default function NewBidRequestPage() {
   const [vinCheckReport, setVinCheckReport] = useState<any>(null);
   const [vinCheckError, setVinCheckError] = useState('');
   const [showVinReport, setShowVinReport] = useState(false);
+  const [showVinConfirmModal, setShowVinConfirmModal] = useState(false);
+  const [vinCheckStatus, setVinCheckStatus] = useState<{ hasReport: boolean; canAfford: boolean; walletBalance: number } | null>(null);
   const VIN_CHECK_PRICE = 15; // USD
 
   // Check for URL parameter and auto-fetch
@@ -125,8 +127,8 @@ export default function NewBidRequestPage() {
     }
   };
 
-  // VIN Check function
-  const handleVinCheck = async () => {
+  // VIN Check - Show confirmation modal first
+  const handleVinCheckClick = async () => {
     if (!vehicleDetails?.vin) {
       setVinCheckError('VIN not available');
       return;
@@ -145,20 +147,38 @@ export default function NewBidRequestPage() {
       const checkData = await checkResponse.json();
 
       if (checkData.hasReport) {
+        // Already have the report - show it directly
         setVinCheckReport(checkData.report);
         setShowVinReport(true);
         setVinCheckLoading(false);
         return;
       }
 
-      // Check if user can afford it
-      if (!checkData.canAfford) {
-        setVinCheckError(`Insufficient balance. You need $${VIN_CHECK_PRICE}. Available: $${checkData.walletBalance.toFixed(2)}`);
-        setVinCheckLoading(false);
-        return;
-      }
+      // Show confirmation modal with wallet status
+      setVinCheckStatus({
+        hasReport: false,
+        canAfford: checkData.canAfford,
+        walletBalance: checkData.walletBalance,
+      });
+      setShowVinConfirmModal(true);
+    } catch (err) {
+      setVinCheckError('An error occurred. Please try again.');
+    } finally {
+      setVinCheckLoading(false);
+    }
+  };
 
-      // Purchase the report
+  // Actually purchase the VIN report
+  const confirmVinCheck = async () => {
+    if (!vehicleDetails?.vin) return;
+
+    setVinCheckLoading(true);
+    setVinCheckError('');
+    setShowVinConfirmModal(false);
+
+    try {
+      const token = localStorage.getItem('token');
+
       const response = await fetch('/api/vin-check', {
         method: 'POST',
         headers: {
@@ -501,7 +521,7 @@ export default function NewBidRequestPage() {
                       </div>
                       {vehicleDetails.vin && (
                         <button
-                          onClick={handleVinCheck}
+                          onClick={handleVinCheckClick}
                           disabled={vinCheckLoading}
                           className="flex items-center gap-1.5 bg-brand-dark hover:bg-brand-dark/90 text-white text-xs px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                         >
@@ -870,6 +890,138 @@ export default function NewBidRequestPage() {
             submitBid();
           }}
         />
+
+        {/* VIN Check Confirmation Modal */}
+        {showVinConfirmModal && vinCheckStatus && (
+          <div
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setShowVinConfirmModal(false)}
+          >
+            <div
+              className="bg-white rounded-xl max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="border-b px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-brand-gold/10 rounded-full flex items-center justify-center">
+                    <FileSearch className="h-5 w-5 text-brand-gold" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900">VIN History Check</h3>
+                    <p className="text-sm text-gray-500 font-mono">{vehicleDetails?.vin}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowVinConfirmModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="p-6">
+                {vinCheckStatus.canAfford ? (
+                  <>
+                    {/* Can Afford - Show Confirmation */}
+                    <div className="text-center mb-6">
+                      <p className="text-gray-600 mb-4">
+                        Get a complete vehicle history report including accident records, title history, odometer verification, and more.
+                      </p>
+                      <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-gray-600">Report Cost</span>
+                          <span className="font-bold text-lg">${VIN_CHECK_PRICE}.00</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t">
+                          <span className="text-gray-600 flex items-center gap-1">
+                            <Wallet className="h-4 w-4" />
+                            Wallet Balance
+                          </span>
+                          <span className="font-semibold text-green-600">
+                            ${vinCheckStatus.walletBalance.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t mt-2">
+                          <span className="text-gray-600">Balance After</span>
+                          <span className="font-semibold">
+                            ${(vinCheckStatus.walletBalance - VIN_CHECK_PRICE).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setShowVinConfirmModal(false)}
+                        className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={confirmVinCheck}
+                        disabled={vinCheckLoading}
+                        className="flex-1 px-4 py-3 bg-brand-dark text-white rounded-lg font-medium hover:bg-brand-dark/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        {vinCheckLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <CheckCircle className="h-4 w-4" />
+                            Confirm Purchase
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Cannot Afford - Show Add Funds Prompt */}
+                    <div className="text-center mb-6">
+                      <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Wallet className="h-8 w-8 text-yellow-600" />
+                      </div>
+                      <h4 className="font-bold text-lg text-gray-900 mb-2">Insufficient Balance</h4>
+                      <p className="text-gray-600 mb-4">
+                        You need <span className="font-bold">${VIN_CHECK_PRICE}.00</span> for this VIN check, but your wallet only has <span className="font-bold">${vinCheckStatus.walletBalance.toFixed(2)}</span>.
+                      </p>
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-yellow-800">Amount Needed</span>
+                          <span className="font-bold text-yellow-800">
+                            ${(VIN_CHECK_PRICE - vinCheckStatus.walletBalance).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setShowVinConfirmModal(false)}
+                        className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowVinConfirmModal(false);
+                          setFundWalletInfo({
+                            required: VIN_CHECK_PRICE,
+                            available: vinCheckStatus.walletBalance,
+                          });
+                          setShowFundWalletModal(true);
+                        }}
+                        className="flex-1 px-4 py-3 bg-brand-gold text-brand-dark rounded-lg font-medium hover:bg-brand-gold/90 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <DollarSign className="h-4 w-4" />
+                        Add Funds
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* VIN Report Modal */}
         {showVinReport && vinCheckReport && (
