@@ -146,6 +146,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check for masked/partial VINs
+    if (vin.includes('*')) {
+      return NextResponse.json(
+        { error: 'This VIN is partially masked. A complete 17-character VIN is required for history checks.' },
+        { status: 400 }
+      );
+    }
+
     const normalizedVin = vin.toUpperCase();
 
     // Check if user already has a report for this VIN
@@ -289,6 +297,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ price: VIN_CHECK_PRICE });
     }
 
+    // Check for masked/partial VINs (containing asterisks)
+    if (vin.includes('*')) {
+      // Get wallet balance anyway so UI can show it
+      const [wallet] = await db
+        .select()
+        .from(wallets)
+        .where(eq(wallets.userId, user.id))
+        .limit(1);
+
+      return NextResponse.json({
+        error: 'This VIN is partially masked. A complete 17-character VIN is required for history checks.',
+        price: VIN_CHECK_PRICE,
+        walletBalance: wallet ? parseFloat(wallet.availableBalance) : 0,
+        canAfford: false,
+        vinMasked: true,
+      });
+    }
+
     const normalizedVin = vin.toUpperCase();
 
     // Check if user already has this report
@@ -311,8 +337,12 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('VIN check status error:', error);
+    console.error('VIN check error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return NextResponse.json(
-      { error: 'Failed to check VIN status' },
+      { error: 'Failed to check VIN status. Please try again.' },
       { status: 500 }
     );
   }

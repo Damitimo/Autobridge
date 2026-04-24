@@ -134,6 +134,12 @@ export default function NewBidRequestPage() {
       return;
     }
 
+    // Check for masked VINs (containing asterisks)
+    if (vehicleDetails.vin.includes('*')) {
+      setVinCheckError('This VIN is partially masked by the auction site. A complete 17-character VIN is required for history checks.');
+      return;
+    }
+
     setVinCheckLoading(true);
     setVinCheckError('');
 
@@ -146,9 +152,16 @@ export default function NewBidRequestPage() {
       });
       const checkData = await checkResponse.json();
 
-      // Check for API errors
+      // Check for API errors (including masked VINs)
       if (checkData.error) {
         setVinCheckError(checkData.error);
+        setVinCheckLoading(false);
+        return;
+      }
+
+      // Check for masked VINs
+      if (checkData.vinMasked) {
+        setVinCheckError(checkData.error || 'This VIN is masked. A complete VIN is required.');
         setVinCheckLoading(false);
         return;
       }
