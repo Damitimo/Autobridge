@@ -614,7 +614,24 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
       }
       if (!location) {
         const allText = document.body.innerText;
-        // Look for city, state pattern
+        // Copart uses "TX - HOUSTON" format
+        const locationMatch = allText.match(/Location[:\s]*\n?([A-Z]{2}\s*-\s*[A-Za-z\s]+)/i);
+        if (locationMatch) {
+          const loc = locationMatch[1].trim();
+          // Convert "TX - HOUSTON" to "Houston, TX"
+          const parts = loc.split(/\s*-\s*/);
+          if (parts.length === 2) {
+            const state = parts[0].trim();
+            const city = parts[1].trim();
+            location = city.charAt(0).toUpperCase() + city.slice(1).toLowerCase() + ', ' + state;
+          } else {
+            location = loc;
+          }
+        }
+      }
+      if (!location) {
+        const allText = document.body.innerText;
+        // Fallback: Look for city, state pattern
         const locationMatch = allText.match(/(?:location|yard|sale location)[:\s]+([A-Za-z\s]+,\s*[A-Z]{2})/i);
         if (locationMatch && isValidValue(locationMatch[1])) {
           location = locationMatch[1].trim();
@@ -697,7 +714,16 @@ app.post('/scrape/copart', authenticate, async (req, res) => {
         });
       }
 
-      // Method 4: Get from detail row
+      // Method 4: Use Copart-specific extraction for Sale date
+      if (!auctionDate) {
+        const allText = document.body.innerText;
+        // Look for "Sale date:" followed by date
+        const saleDateMatch = allText.match(/Sale\s*date[:\s]*\n?([A-Za-z]+\.?\s+[A-Za-z]+\s+\d+,?\s*\d{4}[^\n]*)/i);
+        if (saleDateMatch) {
+          auctionDate = saleDateMatch[1].trim();
+        }
+      }
+
       if (!auctionDate) {
         auctionDate = getDetailValue('sale date') || getDetailValue('auction date') || 'See listing';
       }
