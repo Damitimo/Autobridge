@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 });
     }
 
-    // Get recent bid requests as notifications (last 7 days)
+    // Get pending and withdrawn bid requests only (actionable items for admin)
     const recentBidRequests = await db
       .select({
         id: bidRequests.id,
@@ -36,7 +36,10 @@ export async function GET(request: NextRequest) {
       .from(bidRequests)
       .leftJoin(users, eq(bidRequests.userId, users.id))
       .where(
-        sql`${bidRequests.createdAt} > NOW() - INTERVAL '7 days'`
+        or(
+          eq(bidRequests.status, 'pending'),
+          eq(bidRequests.status, 'withdrawn')
+        )
       )
       .orderBy(desc(bidRequests.createdAt))
       .limit(20);
@@ -50,18 +53,12 @@ export async function GET(request: NextRequest) {
       let title = '';
       let message = '';
 
-      switch (req.status) {
-        case 'pending':
-          title = 'New Bid Request';
-          message = `${req.userFirstName} ${req.userLastName} submitted a bid request for ${vehicleName} - Max bid: $${parseFloat(req.maxBidAmount).toLocaleString()}`;
-          break;
-        case 'withdrawn':
-          title = 'Bid Request Withdrawn';
-          message = `${req.userFirstName} ${req.userLastName} withdrew their bid request for ${vehicleName}`;
-          break;
-        default:
-          title = `Bid Request ${req.status.charAt(0).toUpperCase() + req.status.slice(1)}`;
-          message = `Bid request for ${vehicleName} by ${req.userFirstName} ${req.userLastName}`;
+      if (req.status === 'pending') {
+        title = 'New Bid Request';
+        message = `${req.userFirstName} ${req.userLastName} submitted a bid request for ${vehicleName} - Max bid: $${parseFloat(req.maxBidAmount).toLocaleString()}`;
+      } else if (req.status === 'withdrawn') {
+        title = 'Bid Request Withdrawn';
+        message = `${req.userFirstName} ${req.userLastName} withdrew their bid request for ${vehicleName}`;
       }
 
       return {
@@ -70,12 +67,12 @@ export async function GET(request: NextRequest) {
         title,
         message,
         createdAt: req.createdAt,
-        isRead: req.status !== 'pending' && req.status !== 'withdrawn', // Unread if pending or withdrawn
+        isRead: false,
       };
     });
 
-    // Count unread (pending + withdrawn requests)
-    const unreadCount = notifications.filter(n => !n.isRead).length;
+    // All are unread since they're actionable
+    const unreadCount = notifications.length;
 
     return NextResponse.json({
       success: true,

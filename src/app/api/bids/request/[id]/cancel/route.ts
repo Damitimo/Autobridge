@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { bidRequests, walletTransactions, wallets } from '@/db/schema';
+import { bidRequests, wallets } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getUserFromToken } from '@/lib/auth';
 
@@ -39,8 +39,8 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Bid request not found' }, { status: 404 });
     }
 
-    // Can only cancel pending or bid_placed requests
-    if (bidRequest.status !== 'pending' && bidRequest.status !== 'bid_placed') {
+    // Can only cancel pending requests
+    if (bidRequest.status !== 'pending') {
       return NextResponse.json({
         success: false,
         error: 'Cannot cancel a bid request that is already processed'
@@ -58,45 +58,20 @@ export async function POST(
 
     // Unlock the deposit if there was one
     if (bidRequest.lockedAmount && parseFloat(bidRequest.lockedAmount) > 0) {
-      // Find the lock transaction
-      const [lockTransaction] = await db
+      const [wallet] = await db
         .select()
-        .from(walletTransactions)
-        .where(and(
-          eq(walletTransactions.userId, user.id),
-          eq(walletTransactions.relatedEntityId, id),
-          eq(walletTransactions.type, 'bid_lock')
-        ));
+        .from(wallets)
+        .where(eq(wallets.userId, user.id));
 
-      if (lockTransaction) {
-        // Create unlock transaction
-        await db.insert(walletTransactions).values({
-          userId: user.id,
-          type: 'bid_unlock',
-          amount: bidRequest.lockedAmount,
-          currency: 'USD',
-          status: 'completed',
-          description: `Deposit unlocked - bid request withdrawn`,
-          relatedEntityType: 'bid_request',
-          relatedEntityId: id,
-        });
-
-        // Update wallet balance
-        const [wallet] = await db
-          .select()
-          .from(wallets)
+      if (wallet) {
+        const newLockedBalance = parseFloat(wallet.lockedBalance || '0') - parseFloat(bidRequest.lockedAmount);
+        await db
+          .update(wallets)
+          .set({
+            lockedBalance: Math.max(0, newLockedBalance).toString(),
+            updatedAt: new Date()
+          })
           .where(eq(wallets.userId, user.id));
-
-        if (wallet) {
-          const newLockedBalance = parseFloat(wallet.lockedBalance || '0') - parseFloat(bidRequest.lockedAmount);
-          await db
-            .update(wallets)
-            .set({
-              lockedBalance: Math.max(0, newLockedBalance).toString(),
-              updatedAt: new Date()
-            })
-            .where(eq(wallets.userId, user.id));
-        }
       }
     }
 
