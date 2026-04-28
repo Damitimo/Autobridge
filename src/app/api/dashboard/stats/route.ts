@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { bids, shipments } from '@/db/schema';
+import { bids, bidRequests, shipments } from '@/db/schema';
 import { getUserFromToken } from '@/lib/auth';
-import { eq, and, count, inArray } from 'drizzle-orm';
+import { eq, and, count, inArray, or } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,17 +22,27 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Get total bids count
+    // Get total bids count (bids + bid requests)
     const totalBidsResult = await db
       .select({ count: count() })
       .from(bids)
       .where(eq(bids.userId, user.id));
 
-    // Get won bids count
+    const totalBidRequestsResult = await db
+      .select({ count: count() })
+      .from(bidRequests)
+      .where(eq(bidRequests.userId, user.id));
+
+    // Get won bids count (bids + bid requests with status 'won')
     const wonBidsResult = await db
       .select({ count: count() })
       .from(bids)
       .where(and(eq(bids.userId, user.id), eq(bids.status, 'won')));
+
+    const wonBidRequestsResult = await db
+      .select({ count: count() })
+      .from(bidRequests)
+      .where(and(eq(bidRequests.userId, user.id), eq(bidRequests.status, 'won')));
 
     // Get active shipments count (not delivered)
     const activeShipmentsResult = await db
@@ -69,8 +79,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       stats: {
-        totalBids: totalBidsResult[0]?.count || 0,
-        wonBids: wonBidsResult[0]?.count || 0,
+        totalBids: (totalBidsResult[0]?.count || 0) + (totalBidRequestsResult[0]?.count || 0),
+        wonBids: (wonBidsResult[0]?.count || 0) + (wonBidRequestsResult[0]?.count || 0),
         activeShipments: activeShipmentsResult[0]?.count || 0,
         deliveredVehicles: deliveredResult[0]?.count || 0,
       },
