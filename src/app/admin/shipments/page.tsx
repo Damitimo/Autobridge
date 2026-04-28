@@ -329,7 +329,7 @@ export default function AdminShipmentsPage() {
 
     return (
       <Badge className={statusColors[status] || 'bg-gray-100 text-gray-800'}>
-        {status.replace(/_/g, ' ')}
+        {status?.replace(/_/g, ' ') || 'Unknown'}
       </Badge>
     );
   };
@@ -626,7 +626,7 @@ export default function AdminShipmentsPage() {
                             <FileText className="h-5 w-5 text-gray-500" />
                             <div>
                               <p className="text-sm font-medium">{doc.fileName}</p>
-                              <p className="text-xs text-gray-500 capitalize">{doc.documentType.replace(/_/g, ' ')}</p>
+                              <p className="text-xs text-gray-500 capitalize">{doc.documentType?.replace(/_/g, ' ') || 'Document'}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -721,7 +721,7 @@ export default function AdminShipmentsPage() {
                             </button>
                           </div>
                           <div className="p-2">
-                            <p className="text-xs text-gray-500 capitalize">{photo.stage.replace(/_/g, ' ')}</p>
+                            <p className="text-xs text-gray-500 capitalize">{photo.stage?.replace(/_/g, ' ') || 'Photo'}</p>
                             {photo.caption && <p className="text-xs truncate">{photo.caption}</p>}
                           </div>
                         </div>

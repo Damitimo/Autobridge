@@ -476,7 +476,7 @@ export default function WalletPage() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {getTransactionIcon(tx.type)}
-                          <span className="capitalize">{tx.type.replace('_', ' ')}</span>
+                          <span className="capitalize">{tx.type?.replace('_', ' ') || 'Transaction'}</span>
                         </div>
                       </TableCell>
                       <TableCell>{tx.description}</TableCell>

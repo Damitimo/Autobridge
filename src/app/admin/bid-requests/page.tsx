@@ -195,7 +195,7 @@ export default function AdminBidRequestsPage() {
     return (
       <Badge className={`${config.color} flex items-center gap-1`}>
         {config.icon}
-        {status.replace('_', ' ')}
+        {status?.replace('_', ' ') || 'Unknown'}
       </Badge>
     );
   };

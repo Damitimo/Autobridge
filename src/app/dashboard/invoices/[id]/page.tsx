@@ -230,7 +230,7 @@ export default function InvoiceDetailPage() {
             ) : (
               <div className="flex justify-between py-2">
                 <span className="text-gray-700">
-                  {invoice.type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  {invoice.type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Invoice'}
                 </span>
                 <span className="font-medium">{formatCurrency(invoice.amount, invoice.currency)}</span>
               </div>

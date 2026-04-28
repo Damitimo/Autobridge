@@ -295,7 +295,7 @@ export default function AdminDashboard() {
               <div key={item.status} className="text-center p-3 bg-gray-50 rounded-lg">
                 <p className="text-2xl font-bold text-brand-dark">{item.count}</p>
                 <p className="text-xs text-gray-500 capitalize">
-                  {item.status.replace(/_/g, ' ')}
+                  {item.status?.replace(/_/g, ' ') || 'Unknown'}
                 </p>
               </div>
             )) || (

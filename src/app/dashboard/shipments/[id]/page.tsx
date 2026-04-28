@@ -265,7 +265,7 @@ export default function ShipmentDetailPage() {
                     </div>
                     <div className="flex-1">
                       <p className="font-semibold capitalize">
-                        {event.status.replace(/_/g, ' ')}
+                        {event.status?.replace(/_/g, ' ') || 'Unknown'}
                       </p>
                       <p className="text-sm text-gray-600">{event.location}</p>
                       {event.notes && (

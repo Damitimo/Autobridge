@@ -403,10 +403,10 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
                       <div>
                         <p className="font-semibold">
-                          {shipment.vehicle.year} {shipment.vehicle.make} {shipment.vehicle.model}
+                          {shipment.vehicle?.year} {shipment.vehicle?.make} {shipment.vehicle?.model}
                         </p>
                         <p className="text-sm text-gray-600 capitalize">
-                          Status: {shipment.status.replace(/_/g, ' ')}
+                          Status: {shipment.status?.replace(/_/g, ' ') || 'Unknown'}
                         </p>
                       </div>
                       <div className="text-right">

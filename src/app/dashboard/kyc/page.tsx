@@ -201,7 +201,7 @@ export default function KYCPage() {
                 <ul className="space-y-2">
                   {kycStatus.documents.map((doc) => (
                     <li key={doc.id} className="flex items-center justify-between">
-                      <span className="text-sm">{doc.documentType.replace(/_/g, ' ').toUpperCase()}</span>
+                      <span className="text-sm">{doc.documentType?.replace(/_/g, ' ').toUpperCase() || 'Document'}</span>
                       <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
                         {doc.status}
                       </span>
