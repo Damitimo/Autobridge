@@ -20,6 +20,7 @@ import {
   X
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import PhoneInput from '@/components/phone-input';
 
 interface UserProfile {
   id: string;
@@ -274,11 +275,10 @@ export default function ProfilePage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
               {editing ? (
-                <Input
-                  name="phone"
+                <PhoneInput
                   value={formData.phone}
-                  onChange={handleChange}
-                  placeholder="+234 XXX XXX XXXX"
+                  onChange={(value) => setFormData({ ...formData, phone: value })}
+                  placeholder="Phone number"
                 />
               ) : (
                 <p className="text-gray-900 p-2 bg-gray-50 rounded flex items-center gap-2">

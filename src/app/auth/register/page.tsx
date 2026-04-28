@@ -9,6 +9,7 @@ import { FormInput } from '@/components/ui/form-input';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { signIn } from 'next-auth/react';
+import PhoneInput from '@/components/phone-input';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -213,27 +214,34 @@ export default function RegisterPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormInput
-                  label="Email"
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  error={errors.email}
-                  required
-                />
+              <FormInput
+                label="Email"
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                error={errors.email}
+                required
+              />
 
-                <FormInput
-                  label="Phone Number"
-                  type="tel"
-                  name="phone"
-                  placeholder="+234 800 000 0000"
+              <div>
+                <label className="block text-sm font-medium mb-1.5">
+                  Phone Number <span className="text-red-500">*</span>
+                </label>
+                <PhoneInput
                   value={formData.phone}
-                  onChange={handleChange}
-                  error={errors.phone}
+                  onChange={(value) => {
+                    setFormData({ ...formData, phone: value });
+                    if (errors.phone) {
+                      setErrors({ ...errors, phone: '' });
+                    }
+                  }}
+                  placeholder="Phone number"
                   required
                 />
+                {errors.phone && (
+                  <p className="text-sm text-red-500 mt-1">{errors.phone}</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
