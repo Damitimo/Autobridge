@@ -10,7 +10,7 @@ export interface FormInputProps extends React.ComponentProps<'input'> {
 
 const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(
   ({ className, label, error, id, required, ...props }, ref) => {
-    const inputId = id || `input-${label?.toLowerCase().replace(/\s/g, '-')}`;
+    const inputId = id || (label ? `input-${label.toLowerCase().replace(/\s/g, '-')}` : undefined);
 
     return (
       <div className="w-full space-y-2">
