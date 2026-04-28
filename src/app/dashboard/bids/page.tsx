@@ -19,7 +19,9 @@ import {
   Plus,
   Link as LinkIcon,
   Send,
-  MessageSquare
+  MessageSquare,
+  Ship,
+  Trash2
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -178,6 +180,34 @@ export default function BidsPage() {
     }
   };
 
+  // Handle cancel bid request
+  const handleCancelBid = async (request: BidRequest) => {
+    if (!confirm('Are you sure you want to cancel this bid request? Your locked deposit will be refunded.')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/bids/request/${request.id}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        fetchBids(); // Refresh the list
+      } else {
+        alert(data.error || 'Failed to cancel bid request');
+      }
+    } catch (err) {
+      console.error('Cancel error:', err);
+      alert('Failed to cancel bid request');
+    }
+  };
+
   // Handle message button click - check if conversation exists
   const handleMessageClick = async (request: BidRequest) => {
     try {
@@ -218,12 +248,13 @@ export default function BidsPage() {
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { color: string; icon: any; label: string }> = {
-      pending: { color: 'bg-yellow-100 text-yellow-800 border-yellow-300', icon: Clock, label: 'Pending' },
+      pending: { color: 'bg-yellow-100 text-yellow-800 border-yellow-300', icon: Clock, label: 'Awaiting Decision' },
       bid_placed: { color: 'bg-blue-100 text-blue-800 border-blue-300', icon: Clock, label: 'Bid Placed' },
       won: { color: 'bg-green-100 text-green-800 border-green-300', icon: CheckCircle, label: 'Won' },
       lost: { color: 'bg-red-100 text-red-800 border-red-300', icon: XCircle, label: 'Lost' },
       outbid: { color: 'bg-orange-100 text-orange-800 border-orange-300', icon: TrendingUp, label: 'Outbid' },
       rejected: { color: 'bg-gray-100 text-gray-800 border-gray-300', icon: XCircle, label: 'Rejected' },
+      withdrawn: { color: 'bg-gray-100 text-gray-600 border-gray-300', icon: XCircle, label: 'Withdrawn' },
     };
 
     const config = statusConfig[status] || statusConfig.pending;
@@ -290,46 +321,58 @@ export default function BidsPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b pb-2">
+      <div className="flex gap-4 border-b">
         <button
           onClick={() => setActiveTab('pending')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`px-4 py-3 font-medium transition-colors relative ${
             activeTab === 'pending'
-              ? 'bg-yellow-100 text-yellow-800'
-              : 'text-gray-600 hover:bg-gray-100'
+              ? 'text-brand-dark'
+              : 'text-gray-600 hover:text-gray-900'
           }`}
         >
-          In Progress {pendingCount > 0 && `(${pendingCount})`}
+          Awaiting Decision {pendingCount > 0 && `(${pendingCount})`}
+          {activeTab === 'pending' && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-dark" />
+          )}
         </button>
         <button
           onClick={() => setActiveTab('won')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`px-4 py-3 font-medium transition-colors relative ${
             activeTab === 'won'
-              ? 'bg-green-100 text-green-800'
-              : 'text-gray-600 hover:bg-gray-100'
+              ? 'text-brand-dark'
+              : 'text-gray-600 hover:text-gray-900'
           }`}
         >
           Won {wonCount > 0 && `(${wonCount})`}
+          {activeTab === 'won' && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-dark" />
+          )}
         </button>
         <button
           onClick={() => setActiveTab('lost')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`px-4 py-3 font-medium transition-colors relative ${
             activeTab === 'lost'
-              ? 'bg-red-100 text-red-800'
-              : 'text-gray-600 hover:bg-gray-100'
+              ? 'text-brand-dark'
+              : 'text-gray-600 hover:text-gray-900'
           }`}
         >
           Lost {lostCount > 0 && `(${lostCount})`}
+          {activeTab === 'lost' && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-dark" />
+          )}
         </button>
         <button
           onClick={() => setActiveTab('all')}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+          className={`px-4 py-3 font-medium transition-colors relative ${
             activeTab === 'all'
-              ? 'bg-gray-200 text-gray-800'
-              : 'text-gray-600 hover:bg-gray-100'
+              ? 'text-brand-dark'
+              : 'text-gray-600 hover:text-gray-900'
           }`}
         >
           All ({bids.length + bidRequests.length})
+          {activeTab === 'all' && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-dark" />
+          )}
         </button>
       </div>
 
@@ -351,9 +394,9 @@ export default function BidsPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">In Progress</p>
+                <p className="text-sm text-gray-600">Awaiting Decision</p>
                 <p className="text-2xl font-bold">
-                  {bids.filter(b => b.bid.status === 'pending').length}
+                  {pendingCount}
                 </p>
               </div>
               <Clock className="h-8 w-8 text-brand-dark" />
@@ -489,10 +532,6 @@ export default function BidsPage() {
                           })}
                         </p>
                       </div>
-                      <div>
-                        <p className="text-gray-600">Status</p>
-                        <p className="font-semibold text-yellow-700">Awaiting Bid Placement</p>
-                      </div>
                     </div>
 
                     {request.notes && (
@@ -504,7 +543,26 @@ export default function BidsPage() {
                     )}
 
                     {/* Actions */}
-                    <div className="flex gap-3 pt-2">
+                    <div className="flex flex-wrap gap-3 pt-2">
+                      {request.status === 'won' && (
+                        <Link href="/dashboard/shipments">
+                          <Button size="sm" className="flex items-center gap-2 bg-brand-dark hover:bg-brand-dark/90">
+                            <Ship className="h-4 w-4" />
+                            Track Shipment
+                          </Button>
+                        </Link>
+                      )}
+                      {(request.status === 'pending' || request.status === 'bid_placed') && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50"
+                          onClick={() => handleCancelBid(request)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Cancel Bid
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="outline"

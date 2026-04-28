@@ -149,11 +149,11 @@ export default function ShipmentsPage() {
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No Shipments Yet</h3>
             <p className="text-gray-600 mb-4">
-              Win an auction and complete payment to start tracking your shipment
+              Once you win an auction, your vehicle shipment will appear here for tracking
             </p>
-            <Link href="/dashboard/bids/new">
+            <Link href="/dashboard/bids">
               <Button className="bg-brand-dark hover:bg-brand-dark/90">
-                Find a Vehicle
+                View My Bids
               </Button>
             </Link>
           </CardContent>
@@ -166,7 +166,7 @@ export default function ShipmentsPage() {
             const progress = getProgressPercentage(item.shipment.status);
 
             return (
-              <Link key={item.shipment.id} href={`/dashboard/shipments/${item.shipment.id}`}>
+              <Link key={item.shipment.id} href={`/dashboard/shipments/${item.shipment.id}`} className="block mb-4">
                 <Card className="hover:shadow-lg transition-all cursor-pointer border-l-4 border-l-brand-dark">
                   <CardContent className="p-0">
                     {/* Top Section - Vehicle Info & Status */}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { bidRequests, users, shipments, vehicles } from '@/db/schema';
+import { bidRequests, users, shipments, vehicles, bids } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getUserFromToken } from '@/lib/auth';
 import { sendNotification } from '@/lib/notifications';
@@ -9,9 +9,10 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const authHeader = request.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -50,7 +51,7 @@ export async function GET(
       })
       .from(bidRequests)
       .leftJoin(users, eq(bidRequests.userId, users.id))
-      .where(eq(bidRequests.id, params.id));
+      .where(eq(bidRequests.id, id));
 
     if (!bidRequest) {
       return NextResponse.json({ success: false, error: 'Bid request not found' }, { status: 404 });
@@ -65,9 +66,10 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const authHeader = request.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -96,7 +98,7 @@ export async function PATCH(
     const [currentRequest] = await db
       .select()
       .from(bidRequests)
-      .where(eq(bidRequests.id, params.id));
+      .where(eq(bidRequests.id, id));
 
     if (!currentRequest) {
       return NextResponse.json({ success: false, error: 'Bid request not found' }, { status: 404 });
@@ -122,11 +124,23 @@ export async function PATCH(
     const [updated] = await db
       .update(bidRequests)
       .set(updateData)
-      .where(eq(bidRequests.id, params.id))
+      .where(eq(bidRequests.id, id))
       .returning();
 
-    // Send notification to user based on status change
-    if (status && status !== currentRequest.status) {
+    // Send notification and create records based on status change
+    const statusChanged = status && status !== currentRequest.status;
+    const isWonAndNeedsProcessing = status === 'won' && !currentRequest.bidId;
+
+    console.log('Bid request update:', {
+      id,
+      status,
+      currentStatus: currentRequest.status,
+      bidId: currentRequest.bidId,
+      statusChanged,
+      isWonAndNeedsProcessing
+    });
+
+    if (statusChanged || isWonAndNeedsProcessing) {
       const vehicleName = `${currentRequest.vehicleYear || ''} ${currentRequest.vehicleMake || ''} ${currentRequest.vehicleModel || ''}`.trim() || 'your vehicle';
       let notificationTitle = '';
       let notificationMessage = '';
@@ -137,9 +151,17 @@ export async function PATCH(
           notificationMessage = `We have placed your bid for ${vehicleName}. We'll notify you once the auction ends.`;
           break;
         case 'won':
+          console.log('Processing won status for bid request:', id);
           notificationTitle = 'Congratulations! You Won the Auction';
           notificationMessage = `Great news! Your bid for ${vehicleName} was successful. Check your dashboard for next steps.`;
 
+          // Check if already processed (has a bidId)
+          if (currentRequest.bidId) {
+            console.log('Bid request already processed as won, skipping vehicle/bid/shipment creation');
+            break;
+          }
+
+          console.log('Creating vehicle, bid, and shipment...');
           // Create a vehicle record for the shipment
           const [newVehicle] = await db.insert(vehicles).values({
             auctionSource: currentRequest.auctionSource || 'copart',
@@ -149,13 +171,27 @@ export async function PATCH(
             make: currentRequest.vehicleMake || 'Unknown',
             model: currentRequest.vehicleModel || 'Unknown',
           }).returning();
-          const vehicleId = newVehicle.id;
+
+          // Create a bid record (required for shipment FK constraint)
+          const [newBid] = await db.insert(bids).values({
+            userId: currentRequest.userId,
+            vehicleId: newVehicle.id,
+            maxBidAmount: currentRequest.maxBidAmount,
+            status: 'won',
+            finalBidAmount: currentRequest.maxBidAmount,
+            wonAt: new Date(),
+          }).returning();
+
+          // Link the bid request to the bid
+          await db.update(bidRequests).set({
+            bidId: newBid.id
+          }).where(eq(bidRequests.id, id));
 
           // Create shipment
-          await db.insert(shipments).values({
+          const [newShipment] = await db.insert(shipments).values({
             userId: currentRequest.userId,
-            vehicleId: vehicleId,
-            bidId: currentRequest.bidId || currentRequest.id, // Use bidId if available, otherwise use request id
+            vehicleId: newVehicle.id,
+            bidId: newBid.id,
             status: 'auction_won',
             trackingHistory: [{
               status: 'auction_won',
@@ -163,7 +199,8 @@ export async function PATCH(
               timestamp: new Date().toISOString(),
               notes: 'Auction won - awaiting payment',
             }],
-          });
+          }).returning();
+          console.log('Created shipment:', newShipment.id);
           break;
         case 'lost':
           notificationTitle = 'Auction Result: Outbid';
@@ -175,7 +212,8 @@ export async function PATCH(
           break;
       }
 
-      if (notificationTitle) {
+      // Only send notification if status actually changed (not on retry)
+      if (notificationTitle && statusChanged) {
         await sendNotification({
           userId: currentRequest.userId,
           type: 'bid_request_update',
@@ -183,7 +221,7 @@ export async function PATCH(
           message: notificationMessage,
           channels: ['in_app', 'email'],
           relatedEntityType: 'bid_request',
-          relatedEntityId: params.id,
+          relatedEntityId: id,
         });
       }
     }

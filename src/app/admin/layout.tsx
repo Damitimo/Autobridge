@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -18,9 +18,19 @@ import {
   X,
   Bell,
   Link2,
-  MessageSquare
+  MessageSquare,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+interface AdminNotification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  createdAt: string;
+  isRead: boolean;
+}
 
 const sidebarItems = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
@@ -44,6 +54,10 @@ export default function AdminLayout({
   const [admin, setAdmin] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const notificationRef = useRef<HTMLDivElement>(null);
 
   // Skip auth check for login page
   const isLoginPage = pathname === '/admin/login';
@@ -93,6 +107,48 @@ export default function AdminLayout({
     localStorage.removeItem('adminToken');
     router.push('/admin/login');
   };
+
+  // Fetch admin notifications (recent bid requests, etc.)
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      if (!token) return;
+
+      const response = await fetch('/api/admin/notifications', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data.notifications || []);
+        setUnreadCount(data.unreadCount || 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
+    }
+  };
+
+  // Fetch notifications when admin is authenticated
+  useEffect(() => {
+    if (admin) {
+      fetchNotifications();
+      // Poll every 30 seconds
+      const interval = setInterval(fetchNotifications, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [admin]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setNotificationOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Show login page without layout
   if (isLoginPage) {
@@ -206,10 +262,62 @@ export default function AdminLayout({
               )?.name || 'Admin'}
             </h1>
             <div className="flex items-center space-x-4">
-              <button className="p-2 text-gray-500 hover:text-gray-700 relative">
-                <Bell className="h-5 w-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
+              <div className="relative" ref={notificationRef}>
+                <button
+                  onClick={() => setNotificationOpen(!notificationOpen)}
+                  className="p-2 text-gray-500 hover:text-gray-700 relative"
+                >
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Notification Dropdown */}
+                {notificationOpen && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                    <div className="p-3 border-b border-gray-200">
+                      <h3 className="font-semibold text-gray-900">Notifications</h3>
+                    </div>
+                    <div className="max-h-96 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="p-4 text-center text-gray-500">
+                          <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">No new notifications</p>
+                        </div>
+                      ) : (
+                        notifications.map((notif) => (
+                          <div
+                            key={notif.id}
+                            className={cn(
+                              "p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer",
+                              !notif.isRead && "bg-blue-50"
+                            )}
+                          >
+                            <p className="font-medium text-sm text-gray-900">{notif.title}</p>
+                            <p className="text-xs text-gray-600 mt-1 line-clamp-2">{notif.message}</p>
+                            <div className="flex items-center gap-1 mt-2 text-xs text-gray-400">
+                              <Clock className="h-3 w-3" />
+                              {new Date(notif.createdAt).toLocaleString()}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="p-2 border-t border-gray-200">
+                      <Link
+                        href="/admin/notifications"
+                        className="block text-center text-sm text-brand-dark hover:underline"
+                        onClick={() => setNotificationOpen(false)}
+                      >
+                        View all notifications
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
               {admin && (
                 <div className="flex items-center space-x-3 pl-4 border-l border-gray-200">
                   <div className="text-right hidden sm:block">

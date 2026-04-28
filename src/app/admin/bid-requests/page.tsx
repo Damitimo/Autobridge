@@ -44,7 +44,7 @@ interface BidRequest {
   userPhone: string;
 }
 
-const REQUEST_STATUSES = ['pending', 'bid_placed', 'won', 'lost', 'rejected'];
+const REQUEST_STATUSES = ['pending', 'won', 'lost', 'rejected', 'withdrawn'];
 
 export default function AdminBidRequestsPage() {
   const [requests, setRequests] = useState<BidRequest[]>([]);

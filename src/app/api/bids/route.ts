@@ -4,7 +4,7 @@ import { bids, vehicles, users, bidRequests } from '@/db/schema';
 import { getUserFromToken } from '@/lib/auth';
 import { checkBidEligibility, lockDepositForBid } from '@/lib/wallet';
 import { sendNotification, NotificationTemplates } from '@/lib/notifications';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 
 const createBidSchema = z.object({
@@ -208,11 +208,14 @@ export async function GET(request: NextRequest) {
       .where(eq(bids.userId, user.id))
       .orderBy(desc(bids.createdAt));
 
-    // Also get user's bid requests (not yet linked to vehicles)
+    // Also get user's bid requests (exclude ones that have been converted to bids)
     const userBidRequests = await db
       .select()
       .from(bidRequests)
-      .where(eq(bidRequests.userId, user.id))
+      .where(and(
+        eq(bidRequests.userId, user.id),
+        isNull(bidRequests.bidId) // Only show bid requests not yet linked to a bid
+      ))
       .orderBy(desc(bidRequests.createdAt));
 
     return NextResponse.json({
