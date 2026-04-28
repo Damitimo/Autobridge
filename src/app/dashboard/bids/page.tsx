@@ -211,20 +211,22 @@ export default function BidsPage() {
     return true;
   });
 
-  // Count for tabs
-  const pendingCount = bids.filter(b => b.bid.status === 'pending').length + bidRequests.filter(br => br.status === 'pending').length;
-  const wonCount = bids.filter(b => b.bid.status === 'won').length;
-  const lostCount = bids.filter(b => b.bid.status === 'lost' || b.bid.status === 'outbid').length;
+  // Count for tabs - include bid requests
+  const pendingCount = bids.filter(b => b.bid.status === 'pending').length + bidRequests.filter(br => br.status === 'pending' || br.status === 'bid_placed').length;
+  const wonCount = bids.filter(b => b.bid.status === 'won').length + bidRequests.filter(br => br.status === 'won').length;
+  const lostCount = bids.filter(b => b.bid.status === 'lost' || b.bid.status === 'outbid').length + bidRequests.filter(br => br.status === 'lost' || br.status === 'rejected').length;
 
   const getStatusBadge = (status: string) => {
-    const statusConfig = {
+    const statusConfig: Record<string, { color: string; icon: any; label: string }> = {
       pending: { color: 'bg-yellow-100 text-yellow-800 border-yellow-300', icon: Clock, label: 'Pending' },
+      bid_placed: { color: 'bg-blue-100 text-blue-800 border-blue-300', icon: Clock, label: 'Bid Placed' },
       won: { color: 'bg-green-100 text-green-800 border-green-300', icon: CheckCircle, label: 'Won' },
       lost: { color: 'bg-red-100 text-red-800 border-red-300', icon: XCircle, label: 'Lost' },
       outbid: { color: 'bg-orange-100 text-orange-800 border-orange-300', icon: TrendingUp, label: 'Outbid' },
+      rejected: { color: 'bg-gray-100 text-gray-800 border-gray-300', icon: XCircle, label: 'Rejected' },
     };
 
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
+    const config = statusConfig[status] || statusConfig.pending;
     const Icon = config.icon;
 
     return (
@@ -388,17 +390,34 @@ export default function BidsPage() {
         </Card>
       </div>
 
-      {/* Bid Requests (Pending) - Show in pending and all tabs */}
-      {(activeTab === 'pending' || activeTab === 'all') && bidRequests.filter(br => br.status === 'pending').length > 0 && (
+      {/* Bid Requests - Show based on status and active tab */}
+      {(() => {
+        // Filter bid requests based on active tab
+        const filteredBidRequests = bidRequests.filter(br => {
+          if (activeTab === 'all') return true;
+          if (activeTab === 'pending') return br.status === 'pending' || br.status === 'bid_placed';
+          if (activeTab === 'won') return br.status === 'won';
+          if (activeTab === 'lost') return br.status === 'lost' || br.status === 'rejected';
+          return false;
+        });
+
+        if (filteredBidRequests.length === 0) return null;
+
+        const sectionTitle = activeTab === 'won' ? 'Won Auctions' :
+                            activeTab === 'lost' ? 'Lost/Rejected' :
+                            activeTab === 'pending' ? 'Pending Requests' : 'All Bid Requests';
+
+        return (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-700">Pending Requests</h3>
-          {bidRequests.filter(br => br.status === 'pending').map((request) => (
-            <Card key={request.id} className="hover:shadow-lg transition-shadow relative border-yellow-200">
+          <h3 className="text-lg font-semibold text-gray-700">{sectionTitle}</h3>
+          {filteredBidRequests.map((request) => (
+            <Card key={request.id} className={`hover:shadow-lg transition-shadow relative ${
+              request.status === 'won' ? 'border-green-200' :
+              request.status === 'lost' || request.status === 'rejected' ? 'border-red-200' :
+              'border-yellow-200'
+            }`}>
               <div className="absolute top-4 right-4 z-10">
-                <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 border flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  Pending
-                </Badge>
+                {getStatusBadge(request.status)}
               </div>
               <CardContent className="p-6">
                 <div className="flex flex-col md:flex-row gap-6">
@@ -508,10 +527,17 @@ export default function BidsPage() {
             </Card>
           ))}
         </div>
-      )}
+        );
+      })()}
 
       {/* Bids List */}
-      {filteredBids.length === 0 && bidRequests.filter(br => activeTab === 'all' || br.status === 'pending').length === 0 ? (
+      {filteredBids.length === 0 && bidRequests.filter(br => {
+        if (activeTab === 'all') return true;
+        if (activeTab === 'pending') return br.status === 'pending' || br.status === 'bid_placed';
+        if (activeTab === 'won') return br.status === 'won';
+        if (activeTab === 'lost') return br.status === 'lost' || br.status === 'rejected';
+        return false;
+      }).length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
             <ShoppingCart className="h-16 w-16 text-gray-300 mx-auto mb-4" />

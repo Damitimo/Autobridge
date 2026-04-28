@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { bidRequests, users, notifications } from '@/db/schema';
+import { bidRequests, users, shipments, vehicles } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getUserFromToken } from '@/lib/auth';
+import { sendNotification } from '@/lib/notifications';
 
 export const dynamic = 'force-dynamic';
 
@@ -126,37 +127,63 @@ export async function PATCH(
 
     // Send notification to user based on status change
     if (status && status !== currentRequest.status) {
+      const vehicleName = `${currentRequest.vehicleYear || ''} ${currentRequest.vehicleMake || ''} ${currentRequest.vehicleModel || ''}`.trim() || 'your vehicle';
       let notificationTitle = '';
       let notificationMessage = '';
 
       switch (status) {
         case 'bid_placed':
           notificationTitle = 'Bid Placed Successfully';
-          notificationMessage = `We have placed your bid. We'll notify you once the auction ends.`;
+          notificationMessage = `We have placed your bid for ${vehicleName}. We'll notify you once the auction ends.`;
           break;
         case 'won':
           notificationTitle = 'Congratulations! You Won the Auction';
-          notificationMessage = `Great news! Your bid was successful. Check your dashboard for next steps.`;
+          notificationMessage = `Great news! Your bid for ${vehicleName} was successful. Check your dashboard for next steps.`;
+
+          // Create a vehicle record for the shipment
+          const [newVehicle] = await db.insert(vehicles).values({
+            auctionSource: currentRequest.auctionSource || 'copart',
+            lotNumber: currentRequest.lotNumber || 'N/A',
+            vin: currentRequest.vehicleVin || 'N/A',
+            year: currentRequest.vehicleYear || 0,
+            make: currentRequest.vehicleMake || 'Unknown',
+            model: currentRequest.vehicleModel || 'Unknown',
+          }).returning();
+          const vehicleId = newVehicle.id;
+
+          // Create shipment
+          await db.insert(shipments).values({
+            userId: currentRequest.userId,
+            vehicleId: vehicleId,
+            bidId: currentRequest.bidId || currentRequest.id, // Use bidId if available, otherwise use request id
+            status: 'auction_won',
+            trackingHistory: [{
+              status: 'auction_won',
+              location: '',
+              timestamp: new Date().toISOString(),
+              notes: 'Auction won - awaiting payment',
+            }],
+          });
           break;
         case 'lost':
           notificationTitle = 'Auction Result: Outbid';
-          notificationMessage = `Unfortunately, we were outbid on this vehicle. You can submit another bid request.`;
+          notificationMessage = `Unfortunately, we were outbid on ${vehicleName}. You can submit another bid request.`;
           break;
         case 'rejected':
           notificationTitle = 'Bid Request Rejected';
-          notificationMessage = `Your bid request has been rejected. Reason: ${rejectionReason || 'Not specified'}`;
+          notificationMessage = `Your bid request for ${vehicleName} has been rejected. Reason: ${rejectionReason || 'Not specified'}`;
           break;
       }
 
       if (notificationTitle) {
-        await db.insert(notifications).values({
+        await sendNotification({
           userId: currentRequest.userId,
           type: 'bid_request_update',
           title: notificationTitle,
           message: notificationMessage,
+          channels: ['in_app', 'email'],
           relatedEntityType: 'bid_request',
           relatedEntityId: params.id,
-          channels: ['in_app', 'email'],
         });
       }
     }
