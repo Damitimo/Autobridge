@@ -17,7 +17,9 @@ import {
   Menu,
   X,
   MessageSquare,
-  FileText
+  FileText,
+  Settings,
+  History
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import NotificationDropdown from '@/components/notification-dropdown';
@@ -32,6 +34,11 @@ const sidebarItems = [
     name: 'My Bids',
     href: '/dashboard/bids',
     icon: ShoppingCart,
+  },
+  {
+    name: 'Lookup History',
+    href: '/dashboard/history',
+    icon: History,
   },
   {
     name: 'Shipments',
@@ -63,6 +70,11 @@ const sidebarItems = [
     href: '/dashboard/profile',
     icon: User,
   },
+  {
+    name: 'Settings',
+    href: '/dashboard/settings',
+    icon: Settings,
+  },
 ];
 
 export default function DashboardLayout({
@@ -87,8 +99,46 @@ export default function DashboardLayout({
   useEffect(() => {
     if (user) {
       fetchWalletBalance();
+      fetchUserPreferences();
     }
   }, [user]);
+
+  // Listen for currency changes from settings
+  useEffect(() => {
+    const handleCurrencyChange = (event: CustomEvent) => {
+      setBalanceCurrency(event.detail);
+    };
+
+    window.addEventListener('currencyChanged', handleCurrencyChange as EventListener);
+    return () => {
+      window.removeEventListener('currencyChanged', handleCurrencyChange as EventListener);
+    };
+  }, []);
+
+  const fetchUserPreferences = async () => {
+    try {
+      // Check localStorage first for immediate value
+      const savedCurrency = localStorage.getItem('defaultCurrency') as 'USD' | 'NGN';
+      if (savedCurrency) {
+        setBalanceCurrency(savedCurrency);
+      }
+
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch('/api/user/preferences', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await response.json();
+
+      if (data.success && data.preferences?.defaultCurrency) {
+        setBalanceCurrency(data.preferences.defaultCurrency);
+        localStorage.setItem('defaultCurrency', data.preferences.defaultCurrency);
+      }
+    } catch (error) {
+      console.error('Failed to fetch preferences:', error);
+    }
+  };
 
   const fetchWalletBalance = async () => {
     try {
@@ -278,11 +328,13 @@ export default function DashboardLayout({
                 {pathname === '/dashboard' && 'Dashboard'}
                 {pathname === '/dashboard/wallet' && 'My Wallet'}
                 {pathname === '/dashboard/bids' && 'My Bids'}
+                {pathname === '/dashboard/history' && 'Lookup History'}
                 {pathname === '/dashboard/messages' && 'Messages'}
                 {pathname === '/dashboard/shipments' && 'Shipments'}
                 {pathname === '/dashboard/documents' && 'Documents'}
                 {pathname === '/dashboard/notifications' && 'Notifications'}
                 {pathname === '/dashboard/profile' && 'Profile'}
+                {pathname === '/dashboard/settings' && 'Settings'}
               </h2>
             </div>
 

@@ -79,6 +79,29 @@ export const users = pgTable('users', {
   lastLoginAt: timestamp('last_login_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+
+  // User Preferences
+  preferences: jsonb('preferences').$type<{
+    defaultCurrency?: 'USD' | 'NGN';
+    costIntelligence?: {
+      showVehiclePrice?: boolean;
+      showAuctionFee?: boolean;
+      showTowing?: boolean;
+      showShipping?: boolean;
+      showInsurance?: boolean;
+      showCustomsDuty?: boolean;
+      showPortCharges?: boolean;
+      showClearingFee?: boolean;
+      showServiceFee?: boolean;
+      showLocalDelivery?: boolean;
+      showTotal?: boolean;
+    };
+    notifications?: {
+      email?: boolean;
+      sms?: boolean;
+      push?: boolean;
+    };
+  }>(),
 });
 
 // Vehicles Table (Auction Inventory)
@@ -601,6 +624,41 @@ export const messages = pgTable('messages', {
   readAt: timestamp('read_at'),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Vehicle Lookups History Table
+export const vehicleLookups = pgTable('vehicle_lookups', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull().references(() => users.id),
+
+  // Vehicle Info
+  lotNumber: varchar('lot_number', { length: 50 }).notNull(),
+  source: auctionSourceEnum('source').notNull(),
+  auctionUrl: text('auction_url').notNull(),
+
+  // Vehicle Details (cached from scraper)
+  title: varchar('title', { length: 255 }).notNull(),
+  year: integer('year'),
+  make: varchar('make', { length: 100 }),
+  model: varchar('model', { length: 100 }),
+  vin: varchar('vin', { length: 17 }),
+  imageUrl: text('image_url'),
+  images: jsonb('images').$type<string[]>(),
+
+  // Auction Info
+  currentBid: decimal('current_bid', { precision: 10, scale: 2 }),
+  location: varchar('location', { length: 255 }),
+  damageType: varchar('damage_type', { length: 100 }),
+  odometer: varchar('odometer', { length: 50 }),
+  titleStatus: varchar('title_status', { length: 100 }),
+  auctionDate: varchar('auction_date', { length: 100 }),
+  auctionDateTime: timestamp('auction_date_time'),
+
+  // Full vehicle data (JSON for flexibility)
+  vehicleData: jsonb('vehicle_data').$type<Record<string, any>>(),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
 // Relations

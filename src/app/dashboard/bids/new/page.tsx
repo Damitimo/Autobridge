@@ -8,7 +8,7 @@ import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, AlertCircle, Link2, Car, DollarSign, ExternalLink, Info, ChevronLeft, ChevronRight, X, ZoomIn, FileSearch, CheckCircle, XCircle, AlertTriangle, Download, Wallet } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle, Link2, Car, DollarSign, ExternalLink, Info, ChevronLeft, ChevronRight, X, ZoomIn, FileSearch, CheckCircle, XCircle, AlertTriangle, Download, Wallet, RefreshCw } from 'lucide-react';
 import CostBreakdown from '@/components/cost-breakdown';
 import AuctionCountdown from '@/components/auction-countdown';
 
@@ -86,15 +86,124 @@ export default function NewBidRequestPage() {
   const [showVinConfirmModal, setShowVinConfirmModal] = useState(false);
   const [vinCheckStatus, setVinCheckStatus] = useState<{ hasReport: boolean; canAfford: boolean; walletBalance: number } | null>(null);
   const VIN_CHECK_PRICE = 15; // USD
+  const [refreshingBid, setRefreshingBid] = useState(false);
 
-  // Check for URL parameter and auto-fetch
+  // Check for URL or lookupId parameter
   useEffect(() => {
     const urlParam = searchParams.get('url');
-    if (urlParam && !auctionLink && !autoFetching) {
+    const lookupIdParam = searchParams.get('lookupId');
+
+    if (lookupIdParam && !auctionLink && !autoFetching) {
+      // Load from cached lookup
+      loadFromLookup(lookupIdParam);
+    } else if (urlParam && !auctionLink && !autoFetching) {
       setAuctionLink(urlParam);
       setAutoFetching(true);
     }
   }, [searchParams, auctionLink, autoFetching]);
+
+  const loadFromLookup = async (lookupId: string) => {
+    setLoading(true);
+    setError('');
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/vehicle-lookups/${lookupId}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await response.json();
+
+      if (data.success && data.lookup) {
+        const lookup = data.lookup;
+        setAuctionLink(lookup.auctionUrl);
+
+        // Convert stored lookup data to VehicleDetails format
+        const vehicleData = lookup.vehicleData || {};
+        const details: VehicleDetails = {
+          title: lookup.title,
+          year: lookup.year || vehicleData.year || 0,
+          make: lookup.make || vehicleData.make || '',
+          model: lookup.model || vehicleData.model || '',
+          trim: vehicleData.trim,
+          vin: lookup.vin || vehicleData.vin || '',
+          lotNumber: lookup.lotNumber,
+          currentBid: parseFloat(lookup.currentBid) || vehicleData.currentBid || 0,
+          buyNowPrice: vehicleData.buyNowPrice,
+          imageUrl: lookup.imageUrl || vehicleData.imageUrl,
+          images: vehicleData.images || (lookup.imageUrl ? [lookup.imageUrl] : []),
+          location: lookup.location || vehicleData.location || '',
+          damageType: lookup.damageType || vehicleData.damageType || '',
+          secondaryDamage: vehicleData.secondaryDamage,
+          odometer: lookup.odometer || vehicleData.odometer || '',
+          auctionDate: lookup.auctionDate || vehicleData.auctionDate || '',
+          auctionDateTime: vehicleData.auctionDateTime,
+          auctionStatus: vehicleData.auctionStatus,
+          // Don't trust cached auctionEnded - user can refresh for current status
+          auctionEnded: false,
+          dataLimited: vehicleData.dataLimited,
+          message: vehicleData.message,
+          titleStatus: vehicleData.titleStatus,
+          engineType: vehicleData.engineType,
+          engineStatus: vehicleData.engineStatus,
+          transmission: vehicleData.transmission,
+          transmissionStatus: vehicleData.transmissionStatus,
+          driveType: vehicleData.driveType,
+          fuelType: vehicleData.fuelType,
+          color: vehicleData.color,
+          bodyStyle: vehicleData.bodyStyle,
+          vehicleType: vehicleData.vehicleType,
+          cylinders: vehicleData.cylinders,
+          hasKeys: vehicleData.hasKeys,
+          highlights: vehicleData.highlights,
+          isRunning: vehicleData.isRunning,
+          retailValue: vehicleData.retailValue,
+          specialtyDescription: vehicleData.specialtyDescription,
+          seller: vehicleData.seller,
+          isInsurance: vehicleData.isInsurance,
+          saleType: vehicleData.saleType,
+          source: lookup.source,
+        };
+
+        setVehicleDetails(details);
+        setCurrentImageIndex(0);
+        setStep('details');
+      } else {
+        setError(data.error || 'Failed to load vehicle from history');
+      }
+    } catch (err) {
+      setError('Failed to load vehicle from history');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshBidFromScraper = async () => {
+    if (!auctionLink) return;
+
+    setRefreshingBid(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/vehicles/lookup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ auctionLink }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setVehicleDetails(data.vehicle);
+      } else {
+        setError(data.error || 'Failed to refresh vehicle data');
+      }
+    } catch (err) {
+      setError('Failed to refresh vehicle data');
+    } finally {
+      setRefreshingBid(false);
+    }
+  };
 
   // Auto-fetch when URL is set from params
   useEffect(() => {
@@ -700,7 +809,18 @@ export default function NewBidRequestPage() {
               {/* Fixed Current Bid Section */}
               <div className="px-6 pb-4 flex-shrink-0">
                 <div className="bg-gray-50 rounded-lg p-4 mb-3">
-                  <p className="text-sm text-gray-500">Current Bid</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-500">Current Bid</p>
+                    <button
+                      onClick={refreshBidFromScraper}
+                      disabled={refreshingBid}
+                      className="text-xs text-gray-500 hover:text-brand-dark px-2 py-1 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 flex items-center gap-1"
+                      title="Refresh bid from auction site"
+                    >
+                      <RefreshCw className={`h-3 w-3 ${refreshingBid ? 'animate-spin' : ''}`} />
+                      <span>{refreshingBid ? 'Refreshing...' : 'Refresh'}</span>
+                    </button>
+                  </div>
                   <p className="text-3xl font-bold text-brand-dark">
                     ${vehicleDetails.currentBid.toLocaleString()}
                   </p>

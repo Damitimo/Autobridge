@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronDown, ChevronUp, Loader2, Clock, Ship, AlertTriangle } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, Clock, Ship, AlertTriangle, Settings } from 'lucide-react';
+import Link from 'next/link';
 
 interface CostItem {
   category: string;
@@ -19,6 +20,20 @@ interface CostEstimate {
   disclaimer: string;
 }
 
+interface CostIntelligencePrefs {
+  showVehiclePrice?: boolean;
+  showAuctionFee?: boolean;
+  showTowing?: boolean;
+  showShipping?: boolean;
+  showInsurance?: boolean;
+  showCustomsDuty?: boolean;
+  showPortCharges?: boolean;
+  showClearingFee?: boolean;
+  showServiceFee?: boolean;
+  showLocalDelivery?: boolean;
+  showTotal?: boolean;
+}
+
 interface CostBreakdownProps {
   vehiclePrice: number;
   auctionSource?: 'copart' | 'iaai';
@@ -28,6 +43,15 @@ interface CostBreakdownProps {
   isRunning?: boolean;
   shippingMethod?: 'roro' | 'container_shared' | 'container_exclusive';
 }
+
+// Map category names to preference keys - ONLY customizable items
+// Vehicle Price, Auction Fee, Towing, Shipping, Insurance, AutoBridge Service Fee always show
+const CATEGORY_TO_PREF: Record<string, keyof CostIntelligencePrefs> = {
+  'Nigerian Customs Duty': 'showCustomsDuty',
+  'Port Charges': 'showPortCharges',
+  'Clearing Agent Fee': 'showClearingFee',
+  'Local Delivery (Lagos)': 'showLocalDelivery',
+};
 
 export default function CostBreakdown({
   vehiclePrice,
@@ -42,6 +66,43 @@ export default function CostBreakdown({
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(true);
   const [error, setError] = useState('');
+  const [preferences, setPreferences] = useState<CostIntelligencePrefs>({
+    showVehiclePrice: true,
+    showAuctionFee: true,
+    showTowing: true,
+    showShipping: true,
+    showInsurance: true,
+    showCustomsDuty: true,
+    showPortCharges: true,
+    showClearingFee: true,
+    showServiceFee: true,
+    showLocalDelivery: true,
+    showTotal: true,
+  });
+
+  // Fetch user preferences
+  useEffect(() => {
+    const fetchPreferences = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await fetch('/api/user/preferences', {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const data = await response.json();
+
+        if (data.success && data.preferences?.costIntelligence) {
+          setPreferences(data.preferences.costIntelligence);
+        }
+      } catch (err) {
+        // Use defaults if fetch fails
+        console.error('Failed to fetch preferences:', err);
+      }
+    };
+
+    fetchPreferences();
+  }, []);
 
   const fetchEstimate = useCallback(async () => {
     if (!vehiclePrice || vehiclePrice <= 0) {
@@ -95,6 +156,15 @@ export default function CostBreakdown({
 
     return () => clearTimeout(timer);
   }, [vehiclePrice, fetchEstimate]);
+
+  // Filter breakdown based on preferences
+  const filteredBreakdown = estimate?.breakdown.filter((item) => {
+    const prefKey = CATEGORY_TO_PREF[item.category];
+    if (!prefKey) return true; // Show unknown categories
+    return preferences[prefKey] !== false;
+  }) || [];
+
+  const hiddenCount = (estimate?.breakdown.length || 0) - filteredBreakdown.length;
 
   if (!vehiclePrice || vehiclePrice <= 0) {
     return null;
@@ -169,11 +239,11 @@ export default function CostBreakdown({
 
           {/* Cost Breakdown */}
           <div className="space-y-2">
-            {estimate.breakdown.map((item, index) => (
+            {filteredBreakdown.map((item, index) => (
               <div
                 key={index}
                 className={`flex items-center justify-between py-2 ${
-                  index < estimate.breakdown.length - 1 ? 'border-b border-blue-100' : ''
+                  index < filteredBreakdown.length - 1 ? 'border-b border-blue-100' : ''
                 }`}
               >
                 <div className="flex-1">
@@ -185,16 +255,31 @@ export default function CostBreakdown({
             ))}
           </div>
 
+          {/* Hidden items notice */}
+          {hiddenCount > 0 && (
+            <div className="mt-3 text-center">
+              <Link
+                href="/dashboard/settings"
+                className="text-xs text-blue-600 hover:text-blue-800 flex items-center justify-center gap-1"
+              >
+                <Settings className="h-3 w-3" />
+                {hiddenCount} item{hiddenCount > 1 ? 's' : ''} hidden - Configure in Settings
+              </Link>
+            </div>
+          )}
+
           {/* Total */}
-          <div className="mt-4 pt-3 border-t-2 border-blue-300">
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-blue-900">Total Estimated Cost</span>
-              <div className="text-right ml-4">
-                <p className="text-xl font-bold text-blue-900">${estimate.totalUSD.toLocaleString()}</p>
-                <p className="text-sm text-blue-600">₦{estimate.totalNGN.toLocaleString()}</p>
+          {preferences.showTotal !== false && (
+            <div className="mt-4 pt-3 border-t-2 border-blue-300">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-blue-900">Total Estimated Cost</span>
+                <div className="text-right ml-4">
+                  <p className="text-xl font-bold text-blue-900">${estimate.totalUSD.toLocaleString()}</p>
+                  <p className="text-sm text-blue-600">₦{estimate.totalNGN.toLocaleString()}</p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Exchange Rate Info */}
           <p className="text-xs text-gray-500 mt-2 text-center">

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { db } from '@/db';
-import { users } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { users, vehicleLookups } from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
 import { getUserFromToken } from '@/lib/auth';
 import jwt from 'jsonwebtoken';
 
@@ -146,6 +146,65 @@ export async function POST(request: NextRequest) {
     console.log(`${source} scrape complete:`, vehicle.title);
     console.log('Auction date:', vehicle.auctionDate, '| DateTime:', vehicle.auctionDateTime);
     console.log('Location:', vehicle.location);
+
+    // Save to lookup history
+    try {
+      const existingLookups = await db
+        .select()
+        .from(vehicleLookups)
+        .where(eq(vehicleLookups.userId, user.id))
+        .limit(100);
+
+      const existingLookup = existingLookups.find(
+        l => l.lotNumber === lotNumber && l.source === (isCopart ? 'copart' : 'iaai')
+      );
+
+      if (existingLookup) {
+        // Update existing lookup
+        await db
+          .update(vehicleLookups)
+          .set({
+            title: vehicle.title,
+            currentBid: vehicle.currentBid?.toString(),
+            imageUrl: vehicle.imageUrl || vehicle.images?.[0],
+            images: vehicle.images,
+            location: vehicle.location,
+            damageType: vehicle.damageType,
+            odometer: vehicle.odometer,
+            auctionDate: vehicle.auctionDate,
+            auctionDateTime: vehicle.auctionDateTime ? new Date(vehicle.auctionDateTime) : null,
+            vehicleData: vehicle,
+            updatedAt: new Date(),
+          })
+          .where(eq(vehicleLookups.id, existingLookup.id));
+      } else {
+        // Create new lookup
+        await db.insert(vehicleLookups).values({
+          userId: user.id,
+          lotNumber,
+          source: isCopart ? 'copart' : 'iaai',
+          auctionUrl: auctionLink,
+          title: vehicle.title,
+          year: vehicle.year,
+          make: vehicle.make,
+          model: vehicle.model,
+          vin: vehicle.vin,
+          imageUrl: vehicle.imageUrl || vehicle.images?.[0],
+          images: vehicle.images,
+          currentBid: vehicle.currentBid?.toString(),
+          location: vehicle.location,
+          damageType: vehicle.damageType,
+          odometer: vehicle.odometer,
+          titleStatus: vehicle.titleStatus,
+          auctionDate: vehicle.auctionDate,
+          auctionDateTime: vehicle.auctionDateTime ? new Date(vehicle.auctionDateTime) : null,
+          vehicleData: vehicle,
+        });
+      }
+    } catch (saveError) {
+      console.error('Failed to save lookup history:', saveError);
+      // Don't fail the request if saving fails
+    }
 
     return NextResponse.json({
       success: true,

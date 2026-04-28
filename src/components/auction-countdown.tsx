@@ -22,7 +22,35 @@ export default function AuctionCountdown({ auctionDateTime, auctionDate }: Aucti
 
     const calculateTimeLeft = () => {
       const now = new Date().getTime();
-      const auctionTime = new Date(auctionDateTime).getTime();
+
+      // Parse the auction time, handling timezone abbreviations
+      let auctionTime: number;
+
+      // If it's already an ISO string (ends with Z or has +/-), parse directly
+      if (auctionDateTime.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(auctionDateTime)) {
+        auctionTime = new Date(auctionDateTime).getTime();
+      } else {
+        // Handle strings like "Apr 28, 2026 07:00 PM UTC" or "Apr 28, 2026 07:00 PM PDT"
+        // Remove timezone abbreviation and parse, then adjust if needed
+        let cleanedDate = auctionDateTime
+          .replace(/\s+UTC$/i, ' GMT')  // UTC -> GMT (JS understands GMT)
+          .replace(/\s+PDT$/i, ' GMT-0700')  // Pacific Daylight
+          .replace(/\s+PST$/i, ' GMT-0800')  // Pacific Standard
+          .replace(/\s+EDT$/i, ' GMT-0400')  // Eastern Daylight
+          .replace(/\s+EST$/i, ' GMT-0500')  // Eastern Standard
+          .replace(/\s+CDT$/i, ' GMT-0500')  // Central Daylight
+          .replace(/\s+CST$/i, ' GMT-0600')  // Central Standard
+          .replace(/\s+MDT$/i, ' GMT-0600')  // Mountain Daylight
+          .replace(/\s+MST$/i, ' GMT-0700'); // Mountain Standard
+
+        auctionTime = new Date(cleanedDate).getTime();
+      }
+
+      // If parsing failed, return null
+      if (isNaN(auctionTime)) {
+        return null;
+      }
+
       const difference = auctionTime - now;
 
       if (difference <= 0) {
@@ -38,12 +66,15 @@ export default function AuctionCountdown({ auctionDateTime, auctionDate }: Aucti
       };
     };
 
-    setTimeLeft(calculateTimeLeft());
-    const timer = setInterval(() => {
-      setTimeLeft(calculateTimeLeft());
-    }, 1000);
-
-    return () => clearInterval(timer);
+    const initialTime = calculateTimeLeft();
+    if (initialTime) {
+      setTimeLeft(initialTime);
+      const timer = setInterval(() => {
+        const newTime = calculateTimeLeft();
+        if (newTime) setTimeLeft(newTime);
+      }, 1000);
+      return () => clearInterval(timer);
+    }
   }, [auctionDateTime]);
 
   // If no auctionDateTime, show the date string if available
@@ -67,12 +98,8 @@ export default function AuctionCountdown({ auctionDateTime, auctionDate }: Aucti
   if (!timeLeft) return null;
 
   if (timeLeft.expired) {
-    return (
-      <div className="flex items-center gap-2 bg-red-100 text-red-700 px-3 py-2 rounded-lg">
-        <AlertTriangle className="h-4 w-4" />
-        <span className="font-medium text-sm">Auction Ended</span>
-      </div>
-    );
+    // Don't show anything - the status badge shows if auction ended
+    return null;
   }
 
   // Urgency colors
