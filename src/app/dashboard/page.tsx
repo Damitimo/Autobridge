@@ -392,7 +392,7 @@ export default function DashboardPage() {
             {recentShipments.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-gray-600 mb-4">No shipments yet</p>
-                <Link href="/vehicles">
+                <Link href="/dashboard/bids/new">
                   <Button>Start Browsing Vehicles</Button>
                 </Link>
               </div>

@@ -126,7 +126,7 @@ export default function SignupFeePage() {
             <p className="text-gray-600 mb-4">
               You have already paid the signup fee. You can now start browsing vehicles and placing bids.
             </p>
-            <Button onClick={() => router.push('/vehicles')} className="w-full">
+            <Button onClick={() => router.push('/dashboard/bids/new')} className="w-full">
               Browse Vehicles
             </Button>
           </CardContent>
