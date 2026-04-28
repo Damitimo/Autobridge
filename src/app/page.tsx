@@ -52,6 +52,10 @@ export default function HomePage() {
     router.push('/auth/register');
   };
 
+  const handleAdminClick = () => {
+    router.push('/admin');
+  };
+
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (email) {
@@ -88,10 +92,10 @@ export default function HomePage() {
 
 
   const timeUnits = [
-    { value: timeLeft.days, label: 'Days', isSecret: false },
-    { value: timeLeft.hours, label: 'Hours', isSecret: false },
-    { value: timeLeft.minutes, label: 'Mins', isSecret: false },
-    { value: timeLeft.seconds, label: 'Secs', isSecret: true },
+    { value: timeLeft.days, label: 'Days', isSecret: false, isAdmin: false },
+    { value: timeLeft.hours, label: 'Hours', isSecret: false, isAdmin: false },
+    { value: timeLeft.minutes, label: 'Mins', isSecret: false, isAdmin: true },
+    { value: timeLeft.seconds, label: 'Secs', isSecret: true, isAdmin: false },
   ];
 
   return (
@@ -120,8 +124,8 @@ export default function HomePage() {
                 </span>
               </div>
               <span
-                onClick={unit.isSecret ? handleSecretClick : undefined}
-                className={`text-[10px] sm:text-sm md:text-lg lg:text-xl font-semibold mt-1.5 md:mt-4 block text-white uppercase tracking-wide md:tracking-widest ${unit.isSecret ? 'cursor-pointer select-none' : ''}`}
+                onClick={unit.isSecret ? handleSecretClick : unit.isAdmin ? handleAdminClick : undefined}
+                className={`text-[10px] sm:text-sm md:text-lg lg:text-xl font-semibold mt-1.5 md:mt-4 block text-white uppercase tracking-wide md:tracking-widest ${unit.isSecret || unit.isAdmin ? 'cursor-pointer select-none' : ''}`}
               >
                 {unit.label}
               </span>
