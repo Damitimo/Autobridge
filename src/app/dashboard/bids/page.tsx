@@ -1142,7 +1142,7 @@ export default function BidsPage() {
               <Button
                 className="flex-1"
                 onClick={handleUpdateBid}
-                disabled={editingLoading || !newMaxBid || (editingBid && parseFloat(newMaxBid) === parseFloat(editingBid.maxBidAmount))}
+                disabled={editingLoading || !newMaxBid || !!(editingBid && parseFloat(newMaxBid) === parseFloat(editingBid.maxBidAmount))}
               >
                 {editingLoading ? 'Updating...' : 'Update Bid'}
               </Button>
