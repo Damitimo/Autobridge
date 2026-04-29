@@ -45,8 +45,6 @@ export async function GET(request: NextRequest) {
         vehicleModel: bidRequests.vehicleModel,
         vehicleVin: bidRequests.vehicleVin,
         lotNumber: bidRequests.lotNumber,
-        auctionDate: bidRequests.auctionDate,
-        auctionDateTime: bidRequests.auctionDateTime,
         bidId: bidRequests.bidId,
         createdAt: bidRequests.createdAt,
         updatedAt: bidRequests.updatedAt,
