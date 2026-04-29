@@ -355,8 +355,8 @@ export default function AdminBidRequestsPage() {
                             <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Auction</th>
                             <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Max Bid</th>
                             <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Status</th>
-                            <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Auction Date</th>
                             <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Submitted</th>
+                            <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Auction Date</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -424,10 +424,10 @@ export default function AdminBidRequestsPage() {
                                 </div>
                               </td>
                               <td className="px-4 py-3 text-sm text-gray-500">
-                                {formatDate(req.auctionDate)}
+                                {formatDate(req.createdAt)}
                               </td>
                               <td className="px-4 py-3 text-sm text-gray-500">
-                                {formatDate(req.createdAt)}
+                                {formatDate(req.auctionDate)}
                               </td>
                             </tr>
                           ))}
