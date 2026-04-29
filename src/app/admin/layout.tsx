@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   Users,
   Ship,
-  Gavel,
   CreditCard,
   FileText,
   Settings,
@@ -35,7 +34,6 @@ interface AdminNotification {
 const sidebarItems = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { name: 'Bid Requests', href: '/admin/bid-requests', icon: Link2 },
-  { name: 'Bids', href: '/admin/bids', icon: Gavel },
   { name: 'Messages', href: '/admin/messages', icon: MessageSquare },
   { name: 'Payments', href: '/admin/payments', icon: CreditCard },
   { name: 'Shipments', href: '/admin/shipments', icon: Ship },
