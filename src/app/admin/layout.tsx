@@ -33,7 +33,7 @@ interface AdminNotification {
 
 const sidebarItems = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-  { name: 'Bid Requests', href: '/admin/bid-requests', icon: Link2 },
+  { name: 'Bids', href: '/admin/bid-requests', icon: Link2 },
   { name: 'Messages', href: '/admin/messages', icon: MessageSquare },
   { name: 'Payments', href: '/admin/payments', icon: CreditCard },
   { name: 'Shipments', href: '/admin/shipments', icon: Ship },
