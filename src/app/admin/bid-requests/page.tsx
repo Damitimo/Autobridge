@@ -36,6 +36,7 @@ interface BidRequest {
   vehicleModel: string | null;
   vehicleVin: string | null;
   lotNumber: string | null;
+  auctionDate: string | null;
   bidId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -354,6 +355,7 @@ export default function AdminBidRequestsPage() {
                             <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Auction</th>
                             <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Max Bid</th>
                             <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Status</th>
+                            <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Auction Date</th>
                             <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Submitted</th>
                           </tr>
                         </thead>
@@ -420,6 +422,9 @@ export default function AdminBidRequestsPage() {
                                     </select>
                                   )}
                                 </div>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-500">
+                                {formatDate(req.auctionDate)}
                               </td>
                               <td className="px-4 py-3 text-sm text-gray-500">
                                 {formatDate(req.createdAt)}
