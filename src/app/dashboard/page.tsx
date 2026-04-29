@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Car, TrendingUp, Ship, Gift, Plus, Link2, ArrowRight, Loader2, History, X, ExternalLink } from 'lucide-react';
+import { Car, TrendingUp, Ship, Gift, Plus, Link2, ArrowRight, Loader2, History, X, ExternalLink, CheckCircle, Clock, Truck, Package, MapPin, FileText, Anchor } from 'lucide-react';
 
 interface User {
   id: string;
@@ -29,6 +29,24 @@ interface Shipment {
   };
   estimatedArrivalAt?: string;
 }
+
+// Status configuration for badges
+const STATUS_CONFIG: Record<string, { label: string; icon: any; bgColor: string; textColor: string }> = {
+  auction_won: { label: 'Auction Won', icon: CheckCircle, bgColor: 'bg-green-100', textColor: 'text-green-700' },
+  payment_received: { label: 'Payment Received', icon: CheckCircle, bgColor: 'bg-green-100', textColor: 'text-green-700' },
+  pickup_scheduled: { label: 'Pickup Scheduled', icon: Clock, bgColor: 'bg-blue-100', textColor: 'text-blue-700' },
+  in_transit_to_port: { label: 'In Transit to Port', icon: Truck, bgColor: 'bg-blue-100', textColor: 'text-blue-700' },
+  at_us_port: { label: 'At U.S. Port', icon: Anchor, bgColor: 'bg-blue-100', textColor: 'text-blue-700' },
+  loaded_on_vessel: { label: 'Loaded on Vessel', icon: Package, bgColor: 'bg-indigo-100', textColor: 'text-indigo-700' },
+  vessel_departed: { label: 'Vessel Departed', icon: Ship, bgColor: 'bg-indigo-100', textColor: 'text-indigo-700' },
+  vessel_in_transit: { label: 'Ocean Transit', icon: Ship, bgColor: 'bg-indigo-100', textColor: 'text-indigo-700' },
+  vessel_arrived_nigeria: { label: 'Arrived Nigeria', icon: MapPin, bgColor: 'bg-purple-100', textColor: 'text-purple-700' },
+  customs_clearance: { label: 'Customs Clearance', icon: FileText, bgColor: 'bg-orange-100', textColor: 'text-orange-700' },
+  customs_cleared: { label: 'Customs Cleared', icon: CheckCircle, bgColor: 'bg-orange-100', textColor: 'text-orange-700' },
+  ready_for_pickup: { label: 'Ready for Pickup', icon: Package, bgColor: 'bg-green-100', textColor: 'text-green-700' },
+  in_transit_to_customer: { label: 'Out for Delivery', icon: Truck, bgColor: 'bg-green-100', textColor: 'text-green-700' },
+  delivered: { label: 'Delivered', icon: CheckCircle, bgColor: 'bg-green-100', textColor: 'text-green-700' },
+};
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -398,25 +416,32 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {recentShipments.map((shipment) => (
-                  <Link key={shipment.id} href={`/dashboard/shipments/${shipment.id}`}>
-                    <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                      <div>
-                        <p className="font-semibold">
-                          {shipment.vehicle?.year} {shipment.vehicle?.make} {shipment.vehicle?.model}
-                        </p>
-                        <p className="text-sm text-gray-600 capitalize">
-                          Status: {shipment.status?.replace(/_/g, ' ') || 'Unknown'}
-                        </p>
+                {recentShipments.map((shipment) => {
+                  const statusConfig = STATUS_CONFIG[shipment.status] || {
+                    label: shipment.status?.replace(/_/g, ' ') || 'Unknown',
+                    icon: Clock,
+                    bgColor: 'bg-gray-100',
+                    textColor: 'text-gray-700'
+                  };
+                  const StatusIcon = statusConfig.icon;
+
+                  return (
+                    <Link key={shipment.id} href={`/dashboard/shipments/${shipment.id}`}>
+                      <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <div className="space-y-2">
+                          <p className="font-semibold">
+                            {shipment.vehicle?.year} {shipment.vehicle?.make} {shipment.vehicle?.model}
+                          </p>
+                          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig.bgColor} ${statusConfig.textColor}`}>
+                            <StatusIcon className="h-3.5 w-3.5" />
+                            {statusConfig.label}
+                          </div>
+                        </div>
+                        <ArrowRight className="h-5 w-5 text-gray-400" />
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-600">
-                          {shipment.estimatedArrivalAt ? 'ETA' : 'In Progress'}
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </CardContent>

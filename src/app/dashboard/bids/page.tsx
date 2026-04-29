@@ -21,7 +21,8 @@ import {
   Send,
   MessageSquare,
   Ship,
-  Trash2
+  Trash2,
+  Pencil,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -151,6 +152,12 @@ export default function BidsPage() {
   const [showQuickMessageModal, setShowQuickMessageModal] = useState(false);
   const [selectedBidRequest, setSelectedBidRequest] = useState<BidRequest | null>(null);
 
+  // Edit bid modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingBid, setEditingBid] = useState<BidRequest | null>(null);
+  const [newMaxBid, setNewMaxBid] = useState('');
+  const [editingLoading, setEditingLoading] = useState(false);
+
   useEffect(() => {
     fetchBids();
   }, []);
@@ -177,6 +184,60 @@ export default function BidsPage() {
       setError('Failed to load bids');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle edit bid request
+  const handleOpenEditModal = (request: BidRequest) => {
+    setEditingBid(request);
+    setNewMaxBid(request.maxBidAmount);
+    setShowEditModal(true);
+  };
+
+  const handleUpdateBid = async () => {
+    if (!editingBid || !newMaxBid) return;
+
+    const newAmount = parseFloat(newMaxBid);
+    const currentAmount = parseFloat(editingBid.maxBidAmount);
+
+    if (newAmount === currentAmount) {
+      alert('Please enter a different amount');
+      return;
+    }
+
+    if (newAmount <= 0) {
+      alert('Please enter a valid amount');
+      return;
+    }
+
+    try {
+      setEditingLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/bids/request/${editingBid.id}/update`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ maxBidAmount: newAmount }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(data.message);
+        setShowEditModal(false);
+        setEditingBid(null);
+        setNewMaxBid('');
+        fetchBids(); // Refresh the list
+      } else {
+        alert(data.error || 'Failed to update bid');
+      }
+    } catch (err) {
+      console.error('Update error:', err);
+      alert('Failed to update bid');
+    } finally {
+      setEditingLoading(false);
     }
   };
 
@@ -553,15 +614,26 @@ export default function BidsPage() {
                         </Link>
                       )}
                       {(request.status === 'pending' || request.status === 'bid_placed') && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50"
-                          onClick={() => handleCancelBid(request)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Cancel Bid
-                        </Button>
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex items-center gap-2 text-blue-600 border-blue-200 hover:bg-blue-50"
+                            onClick={() => handleOpenEditModal(request)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                            Edit Bid
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50"
+                            onClick={() => handleCancelBid(request)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Cancel Bid
+                          </Button>
+                        </>
                       )}
                       <Button
                         size="sm"
@@ -1008,6 +1080,76 @@ export default function BidsPage() {
           router.push(`/dashboard/messages?conversation=${conversationId}`);
         }}
       />
+
+      {/* Edit Bid Modal */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Max Bid Amount</DialogTitle>
+            <DialogDescription>
+              {editingBid && (
+                <span>
+                  {editingBid.vehicleYear} {editingBid.vehicleMake} {editingBid.vehicleModel}
+                  {editingBid.lotNumber && ` (Lot #${editingBid.lotNumber})`}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Current Max Bid</label>
+              <p className="text-lg font-semibold text-gray-600">
+                ${editingBid ? parseFloat(editingBid.maxBidAmount).toLocaleString() : '0'}
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">New Max Bid ($)</label>
+              <Input
+                type="number"
+                placeholder="Enter new max bid amount"
+                value={newMaxBid}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewMaxBid(e.target.value)}
+                min="1"
+              />
+              {editingBid && newMaxBid && parseFloat(newMaxBid) !== parseFloat(editingBid.maxBidAmount) && (
+                <p className="text-sm text-gray-600 mt-2">
+                  {parseFloat(newMaxBid) > parseFloat(editingBid.maxBidAmount) ? (
+                    <span className="text-orange-600">
+                      Additional ${((parseFloat(newMaxBid) - parseFloat(editingBid.maxBidAmount)) * 0.1).toFixed(2)} will be locked (10% deposit)
+                    </span>
+                  ) : (
+                    <span className="text-green-600">
+                      ${((parseFloat(editingBid.maxBidAmount) - parseFloat(newMaxBid)) * 0.1).toFixed(2)} will be unlocked
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingBid(null);
+                  setNewMaxBid('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={handleUpdateBid}
+                disabled={editingLoading || !newMaxBid || (editingBid && parseFloat(newMaxBid) === parseFloat(editingBid.maxBidAmount))}
+              >
+                {editingLoading ? 'Updating...' : 'Update Bid'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

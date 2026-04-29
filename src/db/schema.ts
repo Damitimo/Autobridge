@@ -237,6 +237,22 @@ export const bidRequests = pgTable('bid_requests', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Bid Request History Table (tracks max bid changes)
+export const bidRequestHistory = pgTable('bid_request_history', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  bidRequestId: text('bid_request_id').notNull().references(() => bidRequests.id),
+
+  previousMaxBid: decimal('previous_max_bid', { precision: 10, scale: 2 }),
+  newMaxBid: decimal('new_max_bid', { precision: 10, scale: 2 }).notNull(),
+
+  // Who made the change
+  changedBy: text('changed_by').references(() => users.id),
+  changeType: varchar('change_type', { length: 50 }).notNull(), // 'created', 'updated', 'status_change'
+  notes: text('notes'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // Transactions Table
 export const transactions = pgTable('transactions', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -752,7 +768,7 @@ export const invoicesRelations = relations(invoices, ({ one }) => ({
   }),
 }));
 
-export const bidRequestsRelations = relations(bidRequests, ({ one }) => ({
+export const bidRequestsRelations = relations(bidRequests, ({ one, many }) => ({
   user: one(users, {
     fields: [bidRequests.userId],
     references: [users.id],
@@ -764,6 +780,18 @@ export const bidRequestsRelations = relations(bidRequests, ({ one }) => ({
   bid: one(bids, {
     fields: [bidRequests.bidId],
     references: [bids.id],
+  }),
+  history: many(bidRequestHistory),
+}));
+
+export const bidRequestHistoryRelations = relations(bidRequestHistory, ({ one }) => ({
+  bidRequest: one(bidRequests, {
+    fields: [bidRequestHistory.bidRequestId],
+    references: [bidRequests.id],
+  }),
+  changedByUser: one(users, {
+    fields: [bidRequestHistory.changedBy],
+    references: [users.id],
   }),
 }));
 

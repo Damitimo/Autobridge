@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { bidRequests, wallets } from '@/db/schema';
+import { bidRequests, bidRequestHistory, wallets } from '@/db/schema';
 import { getUserFromToken } from '@/lib/auth';
 import { lockFundsForBidRequest } from '@/lib/wallet';
 import { eq } from 'drizzle-orm';
@@ -130,6 +130,16 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Record initial bid in history
+    await db.insert(bidRequestHistory).values({
+      bidRequestId: newRequest.id,
+      previousMaxBid: null,
+      newMaxBid: validated.maxBidAmount.toString(),
+      changedBy: user.id,
+      changeType: 'created',
+      notes: 'Initial bid request submitted',
+    });
 
     return NextResponse.json({
       success: true,

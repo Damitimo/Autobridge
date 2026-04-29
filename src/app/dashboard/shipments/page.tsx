@@ -22,26 +22,30 @@ import {
 } from 'lucide-react';
 
 interface Shipment {
-  shipment: {
-    id: string;
-    status: string;
-    estimatedArrivalAt?: Date | string;
-    createdAt: Date | string;
-    vesselName?: string;
-    pickupScheduledAt?: Date | string;
-    pickedUpAt?: Date | string;
-    arrivedAtWarehouseAt?: Date | string;
-    departedAt?: Date | string;
-  };
+  id: string;
+  status: string;
+  estimatedArrivalAt?: Date | string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  vesselName?: string;
+  pickupScheduledAt?: Date | string;
+  pickedUpAt?: Date | string;
+  arrivedAtWarehouseAt?: Date | string;
+  departedAt?: Date | string;
   vehicle: {
+    id: string;
     year: number;
     make: string;
     model: string;
     vin: string;
+    lotNumber?: string;
     images?: string[];
   };
   bid: {
+    id: string;
+    maxBidAmount?: string;
     finalBidAmount?: string;
+    status?: string;
   };
 }
 
@@ -161,12 +165,12 @@ export default function ShipmentsPage() {
       ) : (
         <div className="space-y-4">
           {shipments.map((item) => {
-            const statusConfig = STATUS_CONFIG[item.shipment.status] || STATUS_CONFIG.auction_won;
+            const statusConfig = STATUS_CONFIG[item.status] || STATUS_CONFIG.auction_won;
             const StatusIcon = statusConfig.icon;
-            const progress = getProgressPercentage(item.shipment.status);
+            const progress = getProgressPercentage(item.status);
 
             return (
-              <Link key={item.shipment.id} href={`/dashboard/shipments/${item.shipment.id}`} className="block mb-4">
+              <Link key={item.id} href={`/dashboard/shipments/${item.id}`} className="block mb-4">
                 <Card className="hover:shadow-lg transition-all cursor-pointer border-l-4 border-l-brand-dark">
                   <CardContent className="p-0">
                     {/* Top Section - Vehicle Info & Status */}
@@ -174,10 +178,10 @@ export default function ShipmentsPage() {
                       <div className="flex items-start gap-4">
                         {/* Vehicle Image */}
                         <div className="hidden sm:block w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                          {item.vehicle.images?.[0] ? (
+                          {item.vehicle?.images?.[0] ? (
                             <img
                               src={item.vehicle.images[0]}
-                              alt={`${item.vehicle.year} ${item.vehicle.make} ${item.vehicle.model}`}
+                              alt={`${item.vehicle?.year} ${item.vehicle?.make} ${item.vehicle?.model}`}
                               className="w-full h-full object-cover"
                             />
                           ) : (
@@ -192,22 +196,27 @@ export default function ShipmentsPage() {
                           <div className="flex items-start justify-between gap-2">
                             <div>
                               <h3 className="font-bold text-lg text-gray-900 truncate">
-                                {item.vehicle.year} {item.vehicle.make} {item.vehicle.model}
+                                {item.vehicle?.year} {item.vehicle?.make} {item.vehicle?.model}
                               </h3>
                               <p className="text-sm text-gray-500 font-mono">
-                                VIN: {item.vehicle.vin?.slice(-8) || 'N/A'}
+                                VIN: {item.vehicle?.vin?.slice(-8) || 'N/A'}
                               </p>
                             </div>
                             <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
                           </div>
 
                           {/* Current Status Badge */}
-                          <div className="mt-3 flex items-center gap-2">
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
                             <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 ${statusConfig.color}`}>
                               <StatusIcon className="h-4 w-4" />
                               <span className="text-sm font-medium">{statusConfig.label}</span>
                             </div>
-                            {item.bid.finalBidAmount && (
+                            {item.updatedAt && (
+                              <span className="text-xs text-gray-500">
+                                Updated: {formatDate(item.updatedAt, 'short')}
+                              </span>
+                            )}
+                            {item.bid?.finalBidAmount && (
                               <span className="text-sm text-gray-600">
                                 ${parseFloat(item.bid.finalBidAmount).toLocaleString()}
                               </span>
@@ -235,7 +244,7 @@ export default function ShipmentsPage() {
                     <div className="border-t bg-gray-50 px-4 sm:px-6 py-3">
                       <div className="flex items-center justify-between">
                         {TIMELINE_STEPS.map((step, index) => {
-                          const stepStatus = getStepStatus(item.shipment.status, step.statuses);
+                          const stepStatus = getStepStatus(item.status, step.statuses);
 
                           return (
                             <div key={step.key} className="flex items-center">
@@ -278,20 +287,20 @@ export default function ShipmentsPage() {
                     </div>
 
                     {/* Footer - ETA & Dates */}
-                    {(item.shipment.estimatedArrivalAt || item.shipment.vesselName) && (
+                    {(item.estimatedArrivalAt || item.vesselName) && (
                       <div className="border-t px-4 sm:px-6 py-3 flex flex-wrap items-center gap-4 text-sm">
-                        {item.shipment.estimatedArrivalAt && (
+                        {item.estimatedArrivalAt && (
                           <div className="flex items-center gap-1.5 text-gray-600">
                             <Calendar className="h-4 w-4" />
                             <span>
-                              ETA: <span className="font-medium">{formatDate(item.shipment.estimatedArrivalAt, 'short')}</span>
+                              ETA: <span className="font-medium">{formatDate(item.estimatedArrivalAt, 'short')}</span>
                             </span>
                           </div>
                         )}
-                        {item.shipment.vesselName && (
+                        {item.vesselName && (
                           <div className="flex items-center gap-1.5 text-gray-600">
                             <Ship className="h-4 w-4" />
-                            <span>Vessel: <span className="font-medium">{item.shipment.vesselName}</span></span>
+                            <span>Vessel: <span className="font-medium">{item.vesselName}</span></span>
                           </div>
                         )}
                       </div>

@@ -3,13 +3,16 @@ import { db } from '@/db';
 import { shipments, users, vehicles, bids, shipmentPhotos, shipmentDocuments } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getUserFromToken } from '@/lib/auth';
+import { sendNotification } from '@/lib/notifications';
 
 // Get shipment details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: shipmentId } = await params;
+
     // Verify admin
     const authHeader = request.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -22,8 +25,6 @@ export async function GET(
     if (!admin || admin.role !== 'admin') {
       return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 });
     }
-
-    const shipmentId = params.id;
 
     // Fetch shipment with related data
     const [shipment] = await db
@@ -93,12 +94,31 @@ export async function GET(
   }
 }
 
+// Status display names for notifications
+const STATUS_DISPLAY_NAMES: Record<string, string> = {
+  auction_won: 'Auction Won',
+  payment_pending: 'Payment Pending',
+  payment_received: 'Payment Received',
+  title_received: 'Title Received',
+  picked_up: 'Picked Up',
+  in_transit_to_port: 'In Transit to Port',
+  at_loading_port: 'At Loading Port',
+  loaded_on_vessel: 'Loaded on Vessel',
+  in_transit_sea: 'In Transit (Sea)',
+  arrived_destination_port: 'Arrived at Port',
+  customs_clearance: 'Customs Clearance',
+  cleared_customs: 'Cleared Customs',
+  delivered: 'Delivered',
+};
+
 // Update shipment status
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: shipmentId } = await params;
+
     // Verify admin
     const authHeader = request.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -112,7 +132,6 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: 'Admin access required' }, { status: 403 });
     }
 
-    const shipmentId = params.id;
     const updates = await request.json();
 
     // Check if shipment exists
@@ -174,8 +193,35 @@ export async function PATCH(
       .set(sanitizedUpdates)
       .where(eq(shipments.id, shipmentId));
 
-    // TODO: Send notification to user about status update
-    // await sendShipmentStatusNotification(existingShipment.userId, updates.status);
+    // Send notification to user about status update
+    if (updates.status && updates.status !== existingShipment.status) {
+      try {
+        // Get vehicle info for the notification message
+        const [vehicle] = await db
+          .select()
+          .from(vehicles)
+          .where(eq(vehicles.id, existingShipment.vehicleId))
+          .limit(1);
+
+        const vehicleName = vehicle
+          ? `${vehicle.year} ${vehicle.make} ${vehicle.model}`
+          : 'your vehicle';
+        const statusDisplayName = STATUS_DISPLAY_NAMES[updates.status] || updates.status.replace(/_/g, ' ');
+
+        await sendNotification({
+          userId: existingShipment.userId,
+          type: 'shipment_update',
+          title: `Shipment Status Update: ${statusDisplayName}`,
+          message: `Your shipment for ${vehicleName} has been updated to "${statusDisplayName}". Tap to view details.`,
+          channels: ['in_app', 'email'],
+          relatedEntityType: 'shipment',
+          relatedEntityId: shipmentId,
+        });
+      } catch (notificationError) {
+        console.error('Failed to send shipment status notification:', notificationError);
+        // Don't fail the update if notification fails
+      }
+    }
 
     return NextResponse.json({
       success: true,

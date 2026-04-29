@@ -19,6 +19,8 @@ import {
   User,
   Loader2,
   AlertCircle,
+  History,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -59,6 +61,19 @@ interface CustomerGroup {
   wonCount: number;
 }
 
+interface BidHistory {
+  id: string;
+  bidRequestId: string;
+  previousMaxBid: string | null;
+  newMaxBid: string;
+  changeType: string;
+  notes: string | null;
+  createdAt: string;
+  changedByFirstName: string | null;
+  changedByLastName: string | null;
+  changedByEmail: string | null;
+}
+
 const REQUEST_STATUSES = ['pending', 'won', 'lost', 'outbidded', 'rejected', 'withdrawn'];
 
 export default function AdminBidRequestsPage() {
@@ -76,6 +91,12 @@ export default function AdminBidRequestsPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [historyModal, setHistoryModal] = useState<{ open: boolean; bidRequestId: string | null; history: BidHistory[]; loading: boolean }>({
+    open: false,
+    bidRequestId: null,
+    history: [],
+    loading: false,
+  });
 
   useEffect(() => {
     fetchRequests();
@@ -167,6 +188,27 @@ export default function AdminBidRequestsPage() {
 
   const collapseAll = () => {
     setExpandedCustomers(new Set());
+  };
+
+  const fetchHistory = async (bidRequestId: string) => {
+    try {
+      setHistoryModal({ open: true, bidRequestId, history: [], loading: true });
+      const token = localStorage.getItem('adminToken');
+
+      const response = await fetch(`/api/admin/bid-requests/${bidRequestId}/history`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setHistoryModal(prev => ({ ...prev, history: data.history, loading: false }));
+      } else {
+        setHistoryModal(prev => ({ ...prev, loading: false }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch history:', error);
+      setHistoryModal(prev => ({ ...prev, loading: false }));
+    }
   };
 
   const handleStatusChange = async (requestId: string, newStatus: string) => {
@@ -357,6 +399,7 @@ export default function AdminBidRequestsPage() {
                             <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Status</th>
                             <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Submitted</th>
                             <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Auction Date</th>
+                            <th className="px-4 py-2 text-center font-medium text-gray-500 uppercase">History</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -429,6 +472,15 @@ export default function AdminBidRequestsPage() {
                               <td className="px-4 py-3 text-sm text-gray-500">
                                 {formatDate(req.auctionDate)}
                               </td>
+                              <td className="px-4 py-3 text-center">
+                                <button
+                                  onClick={() => fetchHistory(req.id)}
+                                  className="p-1 text-gray-500 hover:text-brand-dark hover:bg-gray-100 rounded transition-colors"
+                                  title="View bid history"
+                                >
+                                  <History className="h-4 w-4" />
+                                </button>
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -471,6 +523,106 @@ export default function AdminBidRequestsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* History Modal */}
+      {historyModal.open && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Bid History
+              </h3>
+              <button
+                onClick={() => setHistoryModal({ open: false, bidRequestId: null, history: [], loading: false })}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              {historyModal.loading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-brand-dark" />
+                </div>
+              ) : historyModal.history.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <History className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>No history records found</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {historyModal.history.map((entry, index) => (
+                    <div
+                      key={entry.id}
+                      className={`relative pl-6 pb-4 ${index !== historyModal.history.length - 1 ? 'border-l-2 border-gray-200' : ''}`}
+                    >
+                      <div className="absolute left-0 top-0 -translate-x-1/2 w-3 h-3 rounded-full bg-brand-dark border-2 border-white"></div>
+                      <div className="bg-gray-50 rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <Badge
+                            className={
+                              entry.changeType === 'created'
+                                ? 'bg-green-100 text-green-800'
+                                : entry.changeType === 'updated'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }
+                          >
+                            {entry.changeType === 'created' ? 'Initial Bid' : 'Updated'}
+                          </Badge>
+                          <span className="text-xs text-gray-500">
+                            {new Date(entry.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-sm">
+                          {entry.previousMaxBid ? (
+                            <>
+                              <span className="text-gray-500 line-through">
+                                {formatCurrency(entry.previousMaxBid)}
+                              </span>
+                              <span className="text-gray-400">→</span>
+                              <span className="font-semibold text-green-600">
+                                {formatCurrency(entry.newMaxBid)}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="font-semibold text-green-600">
+                              {formatCurrency(entry.newMaxBid)}
+                            </span>
+                          )}
+                        </div>
+
+                        {entry.notes && (
+                          <p className="text-xs text-gray-600 mt-2">{entry.notes}</p>
+                        )}
+
+                        {entry.changedByFirstName && (
+                          <p className="text-xs text-gray-400 mt-1">
+                            by {entry.changedByFirstName} {entry.changedByLastName}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setHistoryModal({ open: false, bidRequestId: null, history: [], loading: false })}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
