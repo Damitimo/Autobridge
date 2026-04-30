@@ -197,7 +197,7 @@ export function Navbar() {
                           onClick={() => {
                             localStorage.removeItem('token');
                             localStorage.removeItem('user');
-                            signOut({ callbackUrl: '/earlyaccess' });
+                            signOut({ callbackUrl: '/' });
                           }}
                           className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-gray-100 w-full"
                         >
