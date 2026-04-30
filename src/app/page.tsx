@@ -125,7 +125,7 @@ export default function HomePage() {
               </div>
               <span
                 onClick={unit.isSecret ? handleSecretClick : unit.isAdmin ? handleAdminClick : undefined}
-                className={`text-[10px] sm:text-sm md:text-lg lg:text-xl font-semibold mt-1.5 md:mt-4 block text-white uppercase tracking-wide md:tracking-widest ${unit.isSecret || unit.isAdmin ? 'cursor-pointer select-none' : ''}`}
+                className={`text-[10px] sm:text-sm md:text-lg lg:text-xl font-semibold mt-1.5 md:mt-4 block text-white uppercase tracking-wide md:tracking-widest ${unit.isSecret ? 'cursor-pointer select-none underline' : unit.isAdmin ? 'cursor-pointer select-none' : ''}`}
               >
                 {unit.label}
               </span>
