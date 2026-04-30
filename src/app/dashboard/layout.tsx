@@ -218,7 +218,7 @@ export default function DashboardLayout({
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    signOut({ callbackUrl: '/' });
+    signOut({ callbackUrl: '/earlyaccess' });
   };
 
   if (loading) {
