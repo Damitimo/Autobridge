@@ -24,57 +24,20 @@ import {
 import { Button } from '@/components/ui/button';
 import NotificationDropdown from '@/components/notification-dropdown';
 
-const sidebarItems = [
-  {
-    name: 'Dashboard',
-    href: '/dashboard',
-    icon: LayoutDashboard,
-  },
-  {
-    name: 'My Bids',
-    href: '/dashboard/bids',
-    icon: ShoppingCart,
-  },
-  {
-    name: 'Lookup History',
-    href: '/dashboard/history',
-    icon: History,
-  },
-  {
-    name: 'Shipments',
-    href: '/dashboard/shipments',
-    icon: Ship,
-  },
-  {
-    name: 'Messages',
-    href: '/dashboard/messages',
-    icon: MessageSquare,
-  },
-  {
-    name: 'My Wallet',
-    href: '/dashboard/wallet',
-    icon: Wallet,
-  },
-  {
-    name: 'Documents',
-    href: '/dashboard/documents',
-    icon: FileText,
-  },
-  {
-    name: 'Notifications',
-    href: '/dashboard/notifications',
-    icon: Bell,
-  },
-  {
-    name: 'Profile',
-    href: '/dashboard/profile',
-    icon: User,
-  },
-  {
-    name: 'Settings',
-    href: '/dashboard/settings',
-    icon: Settings,
-  },
+const mainItems = [
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'My Bids', href: '/dashboard/bids', icon: ShoppingCart },
+  { name: 'Lookup History', href: '/dashboard/history', icon: History },
+  { name: 'Shipments', href: '/dashboard/shipments', icon: Ship },
+  { name: 'Messages', href: '/dashboard/messages', icon: MessageSquare },
+  { name: 'My Wallet', href: '/dashboard/wallet', icon: Wallet },
+  { name: 'Documents', href: '/dashboard/documents', icon: FileText },
+  { name: 'Notifications', href: '/dashboard/notifications', icon: Bell },
+];
+
+const accountItems = [
+  { name: 'Profile', href: '/dashboard/profile', icon: User },
+  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 
 export default function DashboardLayout({
@@ -270,7 +233,7 @@ export default function DashboardLayout({
 
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-            {sidebarItems.map((item) => {
+            {mainItems.map((item) => {
               const isActive = pathname === item.href;
               const Icon = item.icon;
 
@@ -293,8 +256,29 @@ export default function DashboardLayout({
             })}
           </nav>
 
-          {/* Logout Button */}
-          <div className="p-4 border-t border-white/10">
+          {/* Account + Logout (pinned to bottom) */}
+          <div className="border-t border-white/10 p-4 space-y-1">
+            {accountItems.map((item) => {
+              const isActive = pathname === item.href;
+              const Icon = item.icon;
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setSidebarOpen(false)}
+                  className={cn(
+                    "flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors",
+                    isActive
+                      ? "bg-brand-gold text-brand-dark font-medium"
+                      : "text-white/80 hover:bg-white/10 hover:text-white"
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
             <button
               onClick={handleLogout}
               className="flex items-center space-x-3 px-4 py-3 w-full rounded-lg text-white/80 hover:bg-white/10 hover:text-white transition-colors"
