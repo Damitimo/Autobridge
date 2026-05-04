@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { vehicleLookups } from '@/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { vehicleLookups, vehicles, bids } from '@/db/schema';
+import { eq, desc, and } from 'drizzle-orm';
 import { getUserFromToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -25,13 +25,45 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    const lookups = await db
-      .select()
+    // Join lookups -> vehicles (by lot + source) -> bids (by vehicleId + userId)
+    // so each lookup carries its latest bid status (if any).
+    const rows = await db
+      .select({
+        lookup: vehicleLookups,
+        bidStatus: bids.status,
+        bidUpdatedAt: bids.updatedAt,
+      })
       .from(vehicleLookups)
+      .leftJoin(
+        vehicles,
+        and(
+          eq(vehicles.lotNumber, vehicleLookups.lotNumber),
+          eq(vehicles.auctionSource, vehicleLookups.source),
+        )
+      )
+      .leftJoin(
+        bids,
+        and(
+          eq(bids.vehicleId, vehicles.id),
+          eq(bids.userId, vehicleLookups.userId),
+        )
+      )
       .where(eq(vehicleLookups.userId, user.id))
-      .orderBy(desc(vehicleLookups.updatedAt))
-      .limit(limit)
-      .offset(offset);
+      .orderBy(desc(vehicleLookups.updatedAt), desc(bids.updatedAt));
+
+    // Collapse multi-row joins (multiple bids per vehicle) into one entry per
+    // lookup, keeping the most recent bid's status. Order is preserved from
+    // the SQL above.
+    const byId = new Map<string, any>();
+    for (const row of rows) {
+      if (byId.has(row.lookup.id)) continue;
+      byId.set(row.lookup.id, {
+        ...row.lookup,
+        status: row.bidStatus ?? null,
+      });
+    }
+
+    const lookups = Array.from(byId.values()).slice(offset, offset + limit);
 
     return NextResponse.json({
       success: true,
